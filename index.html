@@ -1,0 +1,3865 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>小朋友每日任務挑戰 - 時間任務獨立響鈴版</title>
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="每日任務">
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Firebase 8.x SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <style>
+    :root {
+      --bg: #FBF8F3;
+      --card-bg: #FFFFFF;
+      --ink: #1E293B;
+      --border-line: #1E293B;
+      --accent-coral: #FF6B6B;
+      --accent-yellow: #FFD166;
+      --accent-mint: #06D6A0;
+      --accent-blue: #4D96FF;
+      --accent-purple: #845EC2;
+      --radius-sm: 16px;
+      --radius-md: 22px;
+      --radius-lg: 32px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    }
+
+    html, body {
+      overflow-x: hidden;
+      scrollbar-width: none;
+    }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+
+    body {
+      background-color: #EBF2F7;
+      color: var(--ink);
+      padding: 16px 12px 36px;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      font-size: 18px;
+    }
+
+    body.overlay-locked {
+      overflow: hidden !important;
+    }
+
+    .app-card {
+      width: 100%;
+      max-width: 580px;
+      background: var(--bg);
+      border-radius: var(--radius-lg);
+      border: 4px solid var(--border-line);
+      box-shadow: 7px 7px 0px rgba(30, 41, 59, 0.9);
+      padding: 22px 18px 36px;
+      position: relative;
+      transition: max-width 0.25s ease;
+    }
+
+    .sync-status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 900;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 2px solid var(--border-line);
+      background: #FFF;
+      margin-left: 6px;
+    }
+    .sync-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #10B981;
+      display: inline-block;
+    }
+    .sync-dot.offline { background: #F59E0B; }
+
+    .kids-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+      scrollbar-width: none;
+    }
+    .kids-bar::-webkit-scrollbar { display: none; }
+
+    .kid-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 3px solid var(--border-line);
+      background: #FFFFFF;
+      font-size: 17px;
+      font-weight: 900;
+      color: #64748B;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .kid-pill.active {
+      background: var(--accent-yellow);
+      color: var(--ink);
+      box-shadow: 3px 3px 0px var(--border-line);
+      transform: translateY(-2px);
+    }
+    .kid-thumb {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border-line);
+      background: #FFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .add-kid-pill {
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 3px dashed #94A3B8;
+      background: transparent;
+      color: #475569;
+      font-weight: 900;
+      font-size: 15px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .action-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .btn-chip {
+      padding: 8px 14px;
+      background: #FFFFFF;
+      border: 2.5px solid var(--border-line);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 3px 3px 0px var(--border-line);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-chip:active {
+      transform: translate(2px, 2px);
+      box-shadow: none;
+    }
+    .btn-chip.highlight-shop {
+      background: #FEF08A;
+      border-color: #CA8A04;
+      color: #854D0E;
+    }
+
+    .date-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .date-btn {
+      background: #F1F5F9;
+      border: 2px solid var(--border-line);
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .date-picker {
+      border: 2.5px solid var(--accent-coral);
+      border-radius: 10px;
+      padding: 5px 10px;
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--ink);
+      background: #FFF;
+      cursor: pointer;
+    }
+    .history-badge {
+      display: inline-block;
+      margin-top: 6px;
+      background: #FEF3C7;
+      border: 2px solid #F59E0B;
+      color: #B45309;
+      font-size: 13px;
+      font-weight: 900;
+      padding: 4px 12px;
+      border-radius: 999px;
+    }
+
+    .board-pagination-row {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      background: #FFFFFF;
+      border: 3px solid var(--border-line);
+      border-radius: var(--radius-md);
+      padding: 8px 16px;
+      margin-bottom: 14px;
+      box-shadow: 3px 3px 0px var(--border-line);
+    }
+    .board-pagination-row.visible {
+      display: flex;
+    }
+    .page-indicator-text {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--ink);
+    }
+
+    .dual-board-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .kid-column-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .hero-banner {
+      background: #FFFFFF;
+      border: 3.5px solid var(--border-line);
+      border-radius: var(--radius-md);
+      box-shadow: 4px 4px 0px var(--border-line);
+      padding: 14px;
+      text-align: center;
+    }
+    .hero-user {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .hero-avatar {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--border-line);
+      background: #FFF9C4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+    .hero-title {
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--ink);
+    }
+
+    .kid-inline-timer-card {
+      background: #F0FDF4;
+      border: 2.5px solid #16A34A;
+      border-radius: 16px;
+      padding: 12px 14px;
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .inline-timer-top {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 15px;
+      font-weight: 900;
+      color: #15803D;
+    }
+    
+    .inline-clock-wrapper {
+      position: relative;
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      border: 5px solid #4CAF50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #FFFFFF;
+      box-shadow: inset 0 0 8px rgba(0,0,0,0.06);
+      transition: border-color 0.25s linear;
+    }
+    .inline-clock-pie {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: conic-gradient(#4CAF50 0deg, #4CAF50 360deg, transparent 360deg);
+      opacity: 0.88;
+      transition: background 0.2s linear;
+    }
+    .inline-clock-core {
+      position: absolute;
+      width: 66px;
+      height: 66px;
+      background: #FFFFFF;
+      border: 2.5px solid var(--border-line);
+      border-radius: 50%;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 900;
+      color: #14532D;
+      font-family: monospace;
+      box-shadow: 1.5px 1.5px 0px var(--border-line);
+    }
+
+    .inline-timer-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .score-card {
+      background: #FFFDF0;
+      border: 3.5px solid var(--border-line);
+      border-radius: var(--radius-md);
+      box-shadow: 4px 4px 0px var(--border-line);
+      padding: 14px 16px;
+    }
+    .score-headline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 16px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .score-star-number {
+      font-size: 26px;
+      font-weight: 900;
+      color: #D97706;
+    }
+    .balance-badge-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #FEF9C3;
+      border: 2px solid #FACC15;
+      border-radius: 10px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      font-weight: 900;
+      color: #854D0E;
+    }
+    .progress-track {
+      height: 14px;
+      background: #E2E8F0;
+      border: 2px solid var(--border-line);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-yellow), var(--accent-coral));
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .badge-ribbon {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #FFFFFF;
+      border: 2px solid var(--border-line);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .task-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .task-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #FFFFFF;
+      border: 3px solid var(--border-line);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      box-shadow: 3.5px 3.5px 0px var(--border-line);
+      transition: transform 0.12s;
+      cursor: pointer;
+      user-select: none;
+    }
+    .task-card:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px var(--border-line);
+    }
+    .task-card.status-done {
+      background: #E8FDF5;
+      border-color: #059669;
+      box-shadow: 2px 2px 0px #059669;
+    }
+    .task-card.status-failed {
+      background: #FEF2F2;
+      border-color: #DC2626;
+      box-shadow: 2px 2px 0px #DC2626;
+    }
+
+    .drag-grip {
+      color: #94A3B8;
+      font-size: 26px;
+      padding-right: 8px;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .task-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+    .tick-box {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      border: 3px solid var(--border-line);
+      background: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 900;
+      color: #059669;
+      flex-shrink: 0;
+    }
+    .task-card.status-done .tick-box {
+      background: var(--accent-mint);
+      border-color: #059669;
+      color: #FFFFFF;
+    }
+    .task-card.status-failed .tick-box {
+      background: var(--accent-coral);
+      border-color: #DC2626;
+      color: #FFFFFF;
+    }
+    .task-icon { font-size: 32px; line-height: 1; }
+    .task-info { display: flex; flex-direction: column; gap: 3px; }
+    .task-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .task-card.status-done .task-title {
+      text-decoration: line-through;
+      color: #94A3B8;
+    }
+    .task-card.status-failed .task-title { color: #DC2626; }
+    .task-hint-tag { font-size: 14px; color: var(--accent-purple); font-weight: 800; }
+    .star-tag {
+      font-size: 14px;
+      font-weight: 900;
+      background: #FFF7ED;
+      border: 1.5px solid #F97316;
+      color: #C2410C;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+    .penalty-tag {
+      font-size: 13px;
+      font-weight: 900;
+      background: #FEE2E2;
+      border: 1.5px solid #EF4444;
+      color: #B91C1C;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    .time-slot-input {
+      border: 2px solid var(--border-line);
+      border-radius: 8px;
+      padding: 4px 6px;
+      font-size: 15px;
+      font-weight: 800;
+      background: #F8FAFC;
+    }
+    .btn-timer-chip {
+      padding: 6px 10px;
+      background: #E0F2FE;
+      border: 2px solid var(--accent-blue);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 900;
+      color: #0284C7;
+      cursor: pointer;
+    }
+
+    .empty-board {
+      text-align: center;
+      padding: 30px 16px;
+      background: #FFFFFF;
+      border: 2.5px dashed #94A3B8;
+      border-radius: var(--radius-md);
+    }
+
+    .reward-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #FFFFFF;
+      border: 2.5px solid var(--border-line);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      box-shadow: 3px 3px 0px var(--border-line);
+    }
+    .reward-card.is-dragging {
+      opacity: 0.45;
+      background: #FEF9C3;
+      border-style: dashed;
+    }
+    .reward-card.drag-over {
+      border-top: 4px solid var(--accent-coral) !important;
+    }
+    .reward-card-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+    .btn-redeem {
+      background: var(--accent-mint);
+      border: 2px solid var(--border-line);
+      border-radius: 10px;
+      padding: 8px 16px;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 2px 2px 0px var(--border-line);
+    }
+    .btn-redeem:disabled {
+      background: #E2E8F0;
+      color: #94A3B8;
+      border-color: #CBD5E1;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    @media (min-width: 900px) {
+      body { padding: 24px; }
+      .app-card {
+        max-width: 1260px;
+        padding: 28px 26px;
+      }
+      .dual-board-container {
+        flex-direction: row;
+        gap: 24px;
+      }
+      .kid-column-panel {
+        background: #FFFFFF;
+        border: 3.5px solid var(--border-line);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        box-shadow: 5px 5px 0px var(--border-line);
+      }
+      .hero-banner {
+        border: none;
+        box-shadow: none;
+        padding: 6px 0 12px;
+        border-bottom: 2px dashed #CBD5E1;
+        border-radius: 0;
+      }
+      .hero-title { font-size: 26px; }
+      .hero-avatar { width: 64px; height: 64px; font-size: 34px; }
+      .task-title { font-size: 21px; }
+      .tick-box { width: 44px; height: 44px; font-size: 26px; }
+    }
+
+    .star-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(4px);
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      overflow: hidden !important;
+    }
+    .star-overlay.active { opacity: 1; pointer-events: auto; }
+    .overlay-title {
+      color: var(--accent-yellow);
+      font-size: 32px;
+      font-weight: 900;
+      text-shadow: 2px 2px 0px #000;
+      margin-bottom: 24px;
+      text-align: center;
+      padding: 0 16px;
+    }
+    .overlay-stars-box {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      max-width: 86vw;
+      max-height: 50vh;
+      overflow: hidden;
+      padding: 10px;
+    }
+    .mega-star {
+      font-size: 64px;
+      filter: drop-shadow(0 4px 18px rgba(255, 209, 102, 0.95));
+      animation: zoomStar 0.55s cubic-bezier(0.18, 1.4, 0.32, 1) forwards;
+      transform: scale(0);
+      user-select: none;
+    }
+    .overlay-sub {
+      color: #FFFFFF;
+      font-size: 18px;
+      font-weight: 800;
+      margin-top: 24px;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 8px 20px;
+      border-radius: 999px;
+    }
+    @keyframes zoomStar {
+      0% { transform: scale(0) rotate(-60deg); opacity: 0; }
+      60% { transform: scale(1.3) rotate(15deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .modal-cover {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-cover.open { opacity: 1; pointer-events: auto; }
+    .modal-sheet {
+      background: #FFFFFF;
+      width: 100%;
+      max-width: 520px;
+      max-height: 88vh;
+      overflow-y: auto;
+      border-radius: var(--radius-lg);
+      border: 4px solid var(--border-line);
+      padding: 22px;
+      box-shadow: 7px 7px 0px var(--border-line);
+      font-size: 16px;
+    }
+    .modal-header {
+      font-size: 20px;
+      font-weight: 900;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .btn-close {
+      background: none;
+      border: none;
+      font-size: 26px;
+      font-weight: 900;
+      cursor: pointer;
+      color: #94A3B8;
+    }
+
+    .form-row { margin-bottom: 14px; }
+    .form-row label {
+      display: block;
+      font-size: 15px;
+      font-weight: 900;
+      color: #475569;
+      margin-bottom: 5px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2.5px solid var(--border-line);
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      font-weight: 800;
+      outline: none;
+      background: #FFF;
+    }
+    .btn-main {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent-coral);
+      border: 3px solid var(--border-line);
+      border-radius: var(--radius-sm);
+      font-weight: 900;
+      color: #FFF;
+      font-size: 17px;
+      cursor: pointer;
+      box-shadow: 3px 3px 0px var(--border-line);
+    }
+    .btn-main:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px var(--border-line);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(70px);
+      background: var(--ink);
+      color: #FFF;
+      padding: 10px 22px;
+      border-radius: 999px;
+      font-size: 16px;
+      font-weight: 900;
+      box-shadow: 0 5px 16px rgba(0,0,0,0.25);
+      transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      pointer-events: none;
+      z-index: 10001;
+      white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<div class="app-card">
+  <div class="kids-bar" id="kidsBar"></div>
+
+  <div class="action-row">
+    <div>
+      <button class="btn-chip" onclick="openKidsModal()">👶 小孩名單</button>
+      <button class="btn-chip" onclick="openTasksModal()">⚙️ 任務設定</button>
+      <button class="btn-chip highlight-shop" onclick="openShopModal()">🎁 獎勵商店</button>
+    </div>
+    <div style="display:flex; align-items:center;">
+      <button class="btn-chip" style="background:#DCFCE7; border-color:#15803D; color:#14532D;" onclick="openBackupModal()">💾 備份還原</button>
+      <button class="btn-chip" onclick="openStatsModal()">📊 成長證明</button>
+      <div class="sync-status-indicator" id="syncIndicator">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncText">啟動中</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="date-nav">
+    <button class="date-btn" onclick="shiftDate(-1)">◀ 前一天</button>
+    <input type="date" id="datePicker" class="date-picker" onchange="onDateChanged(this.value)">
+    <button class="date-btn" onclick="shiftDate(1)">後一天 ▶</button>
+    <button class="date-btn" style="background:var(--accent-yellow);" onclick="resetToday()">今天</button>
+    <div id="historyTagBox" style="width:100%; text-align:center;"></div>
+  </div>
+
+  <div class="board-pagination-row" id="boardPaginationRow">
+    <button class="btn-chip" onclick="changeBoardPage(-1)">◀ 上一頁</button>
+    <span class="page-indicator-text" id="boardPageIndicator">第 1 頁</span>
+    <button class="btn-chip" onclick="changeBoardPage(1)">下一頁 ▶</button>
+  </div>
+
+  <div class="dual-board-container" id="dualBoardContainer"></div>
+</div>
+
+<div class="mini-float-timer" id="miniFloatTimer" onclick="restoreTimerModal()">
+  <div class="mini-pie" id="miniPie"></div>
+  <div class="mini-center"><span id="miniDigits">00:00</span></div>
+</div>
+
+<div class="star-overlay" id="starOverlay" onclick="closeStarOverlay()">
+  <div class="overlay-title" id="overlayTitle">太棒了！挑戰成功！</div>
+  <div class="overlay-stars-box" id="overlayStarsBox"></div>
+  <div class="overlay-sub">點擊任意處繼續挑戰！</div>
+</div>
+
+<!-- 番茄鐘主彈窗 -->
+<div class="modal-cover" id="timerModal">
+  <div class="modal-sheet" style="text-align: center;">
+    <div class="modal-header">
+      <span id="timerTitle">⏱️ 專注番茄鐘</span>
+      <div style="display:flex; gap:6px;">
+        <button class="btn-chip" style="padding:4px 8px; font-size:12px;" onclick="minimizeTimer()">➖ 縮小</button>
+        <button class="btn-close" onclick="closeTimerModal()">✕</button>
+      </div>
+    </div>
+    
+    <div style="display:flex; justify-content:center; gap:8px; margin-bottom:10px;">
+      <span style="font-size:15px; font-weight:900; align-self:center;">計時對象：</span>
+      <select id="timerKidTargetSelect" class="form-input" style="width:auto; padding:4px 10px; font-size:15px;" onchange="onTimerTargetChange(this.value)"></select>
+    </div>
+
+    <div class="timer-wrap" style="display:flex; justify-content:center; margin:12px 0;">
+      <div id="clockWheel" style="width:200px; height:200px; border-radius:50%; border:7px solid #4CAF50; position:relative; display:flex; align-items:center; justify-content:center; background:#FFF;">
+        <div id="clockPie" style="position:absolute; width:100%; height:100%; border-radius:50%; background:conic-gradient(#4CAF50 0deg, #4CAF50 360deg, transparent 360deg); opacity:0.88;"></div>
+        <div id="clockDigits" style="width:90px; height:90px; background:#FFF; border:3.5px solid var(--border-line); border-radius:50%; position:absolute; z-index:2; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:900;">00:00</div>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:center; gap:6px; margin-bottom:14px; flex-wrap:wrap;">
+      <button class="btn-chip" onclick="adjustTimer(-300)">- 5 分</button>
+      <button class="btn-chip" onclick="adjustTimer(-60)">- 1 分</button>
+      <button class="btn-chip" onclick="adjustTimer(60)">+ 1 分</button>
+      <button class="btn-chip" onclick="adjustTimer(300)">+ 5 分</button>
+    </div>
+
+    <div style="background:#F1F5F9; border:2px solid var(--border-line); border-radius:14px; padding:10px 12px; margin-bottom:14px; font-size:14px; font-weight:800; display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span>🔔 到期鈴聲：</span>
+        <div style="display:flex; gap:6px;">
+          <select id="timerRingtoneSelect" class="form-input" style="padding:4px 6px; font-size:13px; width:auto;" onchange="updateRingtone(this.value)">
+            <option value="fanfare">🎺 勝利號角（大合奏）</option>
+            <option value="siren">🚨 急促警報（高穿透）</option>
+            <option value="alarm">⏰ 鬧鐘嗶嗶（雙重音）</option>
+            <option value="school">🔔 學校鐘聲（上下和弦）</option>
+            <option value="arcade">🎮 電玩大破關（躍動階梯）</option>
+            <option value="laser">⚡ 太空雷射嗶嗶（超醒目）</option>
+          </select>
+          <button class="btn-chip" style="padding:4px 8px; font-size:13px;" onclick="testRingtone()">試聽</button>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span>⏱️ 持續秒數：</span>
+        <select id="timerDurationSelect" class="form-input" style="padding:4px 6px; font-size:13px; width:auto;" onchange="updateRingtoneDuration(this.value)">
+          <option value="5">響 5 秒</option>
+          <option value="10">響 10 秒</option>
+          <option value="15">響 15 秒</option>
+          <option value="30">響 30 秒</option>
+          <option value="infinite">響到確認為止</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="timerWarnText" style="display:none; font-size:15px; font-weight:900; color:#DC2626; background:#FEE2E2; border:2px solid #FCA5A5; padding:8px; border-radius:10px; margin-bottom:12px;">
+      🔔 快到時間囉！請準備收尾！
+    </div>
+
+    <div style="display:flex; gap:10px;">
+      <button class="btn-main" id="timerStartPauseBtn" onclick="toggleTimerRunning()">▶ 開始計時</button>
+      <button class="btn-chip" style="flex:1;" onclick="resetTimer()">重新重置</button>
+    </div>
+  </div>
+</div>
+
+<!-- 計時結算 Modal -->
+<div class="modal-cover" id="completeModal">
+  <div class="modal-sheet" style="text-align: center;">
+    <div style="font-size: 50px; margin-bottom: 8px;">⏰</div>
+    <h3 style="font-size: 22px; font-weight: 900; margin-bottom: 8px;" id="completeHeader">時間到了！</h3>
+    <p style="font-size: 16px; font-weight: 800; color: #64748B; margin-bottom: 18px;" id="completePrompt"></p>
+    <div style="display:flex; flex-direction:column; gap:10px;" id="completeActionBox"></div>
+  </div>
+</div>
+
+<!-- 彈窗 1：小孩名單管理 -->
+<div class="modal-cover" id="kidsModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span>👶 小孩名單與大頭貼設定</span>
+      <button class="btn-close" onclick="closeModal('kidsModal')">✕</button>
+    </div>
+    <div id="kidsListSheet" style="margin-bottom: 18px;"></div>
+    
+    <div style="border-top: 2px dashed #CBD5E1; padding-top: 16px;">
+      <h4 style="font-size: 17px; margin-bottom: 10px;" id="kidFormTitle">➕ 新增孩子</h4>
+      <input type="hidden" id="editKidId" value="">
+      
+      <div class="form-row">
+        <label>稱呼 / 暱稱 (例如：晞 Arthur、大寶)</label>
+        <input type="text" id="kidNameInput" class="form-input" placeholder="例如：晞 Arthur" oninput="autoSyncTitleInput(this.value)">
+      </div>
+
+      <div class="form-row">
+        <label>專屬看板標題文字 (例如：晞 Arthur 的每日任務)</label>
+        <input type="text" id="kidCustomTitleInput" class="form-input" placeholder="例如：晞 Arthur 的每日任務">
+      </div>
+      
+      <div style="display:flex; gap:10px;">
+        <div class="form-row" style="flex:1;">
+          <label>代表表情 Emoji</label>
+          <input type="text" id="kidEmojiInput" class="form-input" value="🌟" maxlength="2" placeholder="🌟">
+        </div>
+        <div class="form-row" style="flex:2;">
+          <label>照片頭貼 (自動壓縮)</label>
+          <input type="file" id="kidPhotoInput" accept="image/*" class="form-input" style="padding: 6px;">
+        </div>
+      </div>
+
+      <div class="form-row" id="templateChoiceRow">
+        <label style="font-size:15px; cursor:pointer;">
+          <input type="checkbox" id="copyTemplateCheck" checked style="vertical-align: middle; transform: scale(1.2); margin-right:6px;"> 自動套用「全家預設任務範本」
+        </label>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn-main" id="kidSaveBtn" onclick="saveKidSubmit()">儲存孩子資料</button>
+        <button class="btn-chip" id="kidCancelBtn" style="display:none; flex:1;" onclick="cancelKidEdit()">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 彈窗 2：任務設定 -->
+<div class="modal-cover" id="tasksModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span id="taskModalHeaderTitle">⚙️ 任務設定</span>
+      <button class="btn-close" onclick="closeModal('tasksModal')">✕</button>
+    </div>
+
+    <!-- 下拉切換孩子 -->
+    <div style="background:#EEF2F6; border:2.5px solid var(--border-line); border-radius:12px; padding:10px 12px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between;">
+      <span style="font-size:15px; font-weight:900; color:var(--ink);">👤 選擇要設定的孩子：</span>
+      <select id="taskModalKidSelect" class="form-input" style="width:auto; padding:4px 12px; font-size:15px;" onchange="onTaskModalKidChanged(this.value)"></select>
+    </div>
+    
+    <div style="background: #FEF9C3; border: 2px solid var(--border-line); border-radius: 14px; padding: 12px; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span style="font-size: 15px; font-weight: 900; color: #B45309;">🎉 打勾完成慶祝音效：</span>
+        <button class="btn-chip" style="padding: 4px 10px; font-size: 13px;" onclick="testCheerSound()">試聽</button>
+      </div>
+      <select id="cheerSelect" class="form-input" style="font-size: 14px; padding: 6px;" onchange="updateCheerSound(this.value)">
+        <option value="cheer">👏 群眾熱烈歡呼</option>
+        <option value="fanfare">🎺 勝利小喇叭</option>
+        <option value="arcade">🎮 經典 8-Bit 過關音</option>
+        <option value="chime">🔔 清脆奇幻雙音和弦</option>
+      </select>
+    </div>
+
+    <div id="taskListSheet" style="max-height: 220px; overflow-y: auto; margin-bottom: 16px;"></div>
+    
+    <div style="border-top: 2px dashed #CBD5E1; padding-top: 16px;">
+      <h4 style="font-size: 17px; margin-bottom: 10px;" id="taskFormHeader">➕ 為孩子新增任務</h4>
+      <input type="hidden" id="editTaskId" value="">
+      
+      <div class="form-row">
+        <label>任務名稱</label>
+        <input type="text" id="taskTitleInput" class="form-input" placeholder="例如：收書包、吃青菜">
+      </div>
+      <div class="form-row">
+        <label>小備註 (選填)</label>
+        <input type="text" id="taskHintInput" class="form-input" placeholder="例如：5 MIN、檢查鉛筆">
+      </div>
+      <div style="display:flex; gap:10px;">
+        <div class="form-row" style="flex:1;">
+          <label>圖示 Emoji</label>
+          <input type="text" id="taskIconInput" class="form-input" value="📝" maxlength="2">
+        </div>
+        <div class="form-row" style="flex:1;">
+          <label>達成獎勵星數</label>
+          <input type="number" id="taskStarsInput" class="form-input" value="1" min="1" max="999">
+        </div>
+      </div>
+      
+      <div style="background:#FFF1F2; border:2px solid #FDA4AF; border-radius:12px; padding:10px 12px; margin-bottom:14px;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:15px; font-weight:900; color:#BE123C; cursor:pointer;">
+          <input type="checkbox" id="enablePenaltyCheck" onchange="togglePenaltyInput(this.checked)" style="transform:scale(1.2);">
+          ⚠️ 若未達成此任務，是否扣除星星？
+        </label>
+        <div id="penaltyBox" style="display:none; margin-top:10px;">
+          <label style="font-size:14px; font-weight:800; color:#881337;">未達成扣除星數：</label>
+          <input type="number" id="taskPenaltyInput" class="form-input" value="1" min="1" max="99" style="font-size:15px; padding:6px 10px;">
+        </div>
+      </div>
+
+      <!-- 需求 1：已去除 (如上樓睡覺) -->
+      <div class="form-row">
+        <label>任務類型</label>
+        <select id="taskTypeSelect" class="form-input" onchange="toggleTimerSettings(this.value)">
+          <option value="regular">一般打勾任務</option>
+          <option value="timer">番茄鐘計時任務</option>
+          <option value="time_set">時間設定任務</option>
+        </select>
+      </div>
+      <div id="timerExtraBox" style="display:none; background:#F8FAFC; border:2px solid #CBD5E1; padding:10px; border-radius:12px; margin-bottom:12px;">
+        <div class="form-row">
+          <label>倒數分鐘數</label>
+          <input type="number" id="taskMinutesInput" class="form-input" value="15" min="1" max="180">
+        </div>
+        <div class="form-row">
+          <label>提前幾分鐘發出叮咚預警？</label>
+          <input type="number" id="taskWarnInput" class="form-input" value="3" min="1" max="60">
+        </div>
+      </div>
+
+      <div id="assignKidsRow" style="background:#F0FDF4; border:2px solid #86EFAC; border-radius:12px; padding:10px 12px; margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <label style="font-size:14px; font-weight:900; color:#166534; margin-bottom:0;">👥 同步套用給其他孩子：</label>
+          <button type="button" class="btn-chip" style="padding:2px 8px; font-size:12px;" onclick="toggleSelectAllAssignKids()">全選 / 清除</button>
+        </div>
+        <div id="assignKidsCheckboxes" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button class="btn-main" id="taskSaveBtn" onclick="saveTaskSubmit()">儲存任務</button>
+        <button class="btn-chip" id="taskCancelBtn" style="display:none; flex:1;" onclick="cancelTaskEdit()">取消</button>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; margin-top:14px; border-top:1.5px dashed #CBD5E1; padding-top:10px;">
+        <button onclick="loadTemplateForCurrentKid()" style="background:none; border:none; font-size:13px; color:var(--accent-blue); font-weight:bold; text-decoration:underline; cursor:pointer;">
+          💡 載入目前預設範本
+        </button>
+        <button onclick="openTemplateEditorModal()" style="background:none; border:none; font-size:13px; color:var(--accent-purple); font-weight:bold; text-decoration:underline; cursor:pointer;">
+          🛠️ 自訂全家預設範本
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 彈窗 2-B：預設範本編輯 Modal -->
+<div class="modal-cover" id="templateEditorModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span>🛠️ 修改全家預設任務範本</span>
+      <button class="btn-close" onclick="closeModal('templateEditorModal')">✕</button>
+    </div>
+    <p style="font-size:13px; font-weight:800; color:#64748B; margin-bottom:10px;">
+      此處編輯的項目為「全家生活常規範本」，未來新增孩子或載入範本時，會自動套用這份清單！
+    </p>
+    <div id="templateItemsList" style="max-height: 220px; overflow-y: auto; margin-bottom: 14px;"></div>
+    
+    <div style="border-top:2px dashed #CBD5E1; padding-top:12px;">
+      <h4 style="font-size:15px; margin-bottom:8px;" id="templateFormTitle">➕ 新增範本項目</h4>
+      <input type="hidden" id="editTemplateItemId" value="">
+      <div class="form-row">
+        <label>項目名稱</label>
+        <input type="text" id="tplTitleInput" class="form-input" placeholder="例如：收書包">
+      </div>
+      <div style="display:flex; gap:8px;">
+        <div class="form-row" style="flex:1;">
+          <label>Emoji</label>
+          <input type="text" id="tplIconInput" class="form-input" value="📝" maxlength="2">
+        </div>
+        <div class="form-row" style="flex:1;">
+          <label>預設星數</label>
+          <input type="number" id="tplStarsInput" class="form-input" value="1" min="1">
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-main" id="tplSaveBtn" onclick="saveTemplateItemSubmit()">加入範本</button>
+        <button class="btn-chip" id="tplCancelBtn" style="display:none; flex:1;" onclick="cancelTemplateItemEdit()">取消</button>
+      </div>
+      <button onclick="restoreFactoryTemplate()" style="width:100%; margin-top:10px; background:none; border:none; font-size:12px; color:#DC2626; text-decoration:underline; cursor:pointer;">
+        🔄 回復原廠經典 10 項範本
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 彈窗 3：獎勵商店 -->
+<div class="modal-cover" id="shopModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span>🎁 星星兌換心願商店</span>
+      <button class="btn-close" onclick="closeModal('shopModal')">✕</button>
+    </div>
+
+    <div style="background:#EEF2F6; border:2.5px solid var(--border-line); border-radius:12px; padding:10px 12px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between;">
+      <span style="font-size:15px; font-weight:900; color:var(--ink);">👤 選擇要查看的孩子：</span>
+      <select id="shopModalKidSelect" class="form-input" style="width:auto; padding:4px 12px; font-size:15px;" onchange="onShopModalKidChanged(this.value)"></select>
+    </div>
+
+    <div style="background:#FEF9C3; border:3px solid var(--border-line); border-radius:16px; padding:14px; margin-bottom:16px; box-shadow:4px 4px 0px var(--border-line);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div>
+          <div style="font-size:16px; font-weight:900; color:#854D0E;">目前持有人：【<span id="shopKidName">大寶</span>】</div>
+          <div style="font-size:13px; font-weight:800; color:#A16207;">可用星星餘額庫存</div>
+        </div>
+        <div style="font-size:30px; font-weight:900; color:#D97706;" id="shopStarBalance">0 ⭐</div>
+      </div>
+
+      <div style="display:flex; gap:6px; border-top:2px dashed #EAB308; padding-top:10px; flex-wrap:wrap;">
+        <button class="btn-chip" style="flex:1; background:#DCFCE7; color:#14532D; border-color:#16A34A; padding:6px 10px; font-size:13px;" onclick="promptManualAdjustStars('add')">
+          ➕ 獎勵星星
+        </button>
+        <button class="btn-chip" style="flex:1; background:#FEE2E2; color:#991B1B; border-color:#DC2626; padding:6px 10px; font-size:13px;" onclick="promptManualAdjustStars('deduct')">
+          ➖ 扣除星星
+        </button>
+        <button class="btn-chip" style="background:#E0F2FE; color:#0369A1; border-color:#0284C7; padding:6px 10px; font-size:13px;" onclick="promptDirectSetBalance()">
+          ✏️ 校正餘額
+        </button>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span style="font-size:13px; font-weight:800; color:#64748B;">💡 拖曳 ⠿ 調整順序，點擊「✏️」修改品項或星數</span>
+      <div style="display:flex; gap:6px;">
+        <button onclick="restoreDefaultRewardsForCurrentKid()" style="background:none; border:none; font-size:12px; color:var(--accent-blue); font-weight:bold; text-decoration:underline; cursor:pointer;">
+          🔄 套用預設清單
+        </button>
+        <button onclick="openRewardTemplateEditorModal()" style="background:none; border:none; font-size:12px; color:var(--accent-purple); font-weight:bold; text-decoration:underline; cursor:pointer;">
+          🛠️ 編輯全家預設清單
+        </button>
+      </div>
+    </div>
+    
+    <div id="rewardListSheet" style="max-height: 250px; overflow-y: auto; margin-bottom: 16px;"></div>
+
+    <div style="border-top: 2px dashed #CBD5E1; padding-top: 16px;">
+      <h4 style="font-size: 16px; font-weight: 900; margin-bottom: 10px;" id="rewardFormHeader">➕ 新增 / 編輯心願獎勵</h4>
+      <input type="hidden" id="editRewardId" value="">
+      
+      <div class="form-row">
+        <label>獎勵名稱</label>
+        <input type="text" id="newRewardTitle" class="form-input" placeholder="例如：看卡通 20 分鐘">
+      </div>
+      <div style="display:flex; gap:10px;">
+        <div class="form-row" style="flex:1;">
+          <label>Emoji 圖示</label>
+          <input type="text" id="newRewardIcon" class="form-input" value="🎁" maxlength="2">
+        </div>
+        <div class="form-row" style="flex:1;">
+          <label>所需星星數</label>
+          <input type="number" id="newRewardCost" class="form-input" value="10" min="1" max="999">
+        </div>
+      </div>
+
+      <div style="background:#F0FDF4; border:2px solid #86EFAC; border-radius:12px; padding:10px 12px; margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <label style="font-size:14px; font-weight:900; color:#166534; margin-bottom:0;">👥 同步此獎勵至其他孩子：</label>
+          <button type="button" class="btn-chip" style="padding:2px 8px; font-size:12px;" onclick="toggleSelectAllAssignRewards()">全選 / 清除</button>
+        </div>
+        <div id="assignRewardsCheckboxes" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button class="btn-main" id="rewardSaveBtn" onclick="saveRewardSubmit()">儲存獎勵項目</button>
+        <button class="btn-chip" id="rewardCancelBtn" style="display:none; flex:1;" onclick="cancelRewardEdit()">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 彈窗 3-B：全家預設獎勵清單編輯器 -->
+<div class="modal-cover" id="rewardTemplateEditorModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span>🛠️ 修改全家預設心願清單</span>
+      <button class="btn-close" onclick="closeModal('rewardTemplateEditorModal')">✕</button>
+    </div>
+    <p style="font-size:13px; font-weight:800; color:#64748B; margin-bottom:10px;">
+      此處編輯的項目為「全家預設獎勵心願」。未來新增孩子或點擊「套用預設清單」時，會自動使用這份清單！
+    </p>
+    <div id="rewardTemplateItemsList" style="max-height: 220px; overflow-y: auto; margin-bottom: 14px;"></div>
+    
+    <div style="border-top:2px dashed #CBD5E1; padding-top:12px;">
+      <h4 style="font-size:15px; margin-bottom:8px;" id="rewardTemplateFormTitle">➕ 新增預設獎勵</h4>
+      <input type="hidden" id="editRewardTemplateItemId" value="">
+      <div class="form-row">
+        <label>獎勵名稱</label>
+        <input type="text" id="tplRewardTitleInput" class="form-input" placeholder="例如：吃冰淇淋">
+      </div>
+      <div style="display:flex; gap:8px;">
+        <div class="form-row" style="flex:1;">
+          <label>Emoji</label>
+          <input type="text" id="tplRewardIconInput" class="form-input" value="🎁" maxlength="2">
+        </div>
+        <div class="form-row" style="flex:1;">
+          <label>預設星星數</label>
+          <input type="number" id="tplRewardCostInput" class="form-input" value="10" min="1">
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-main" id="tplRewardSaveBtn" onclick="saveRewardTemplateItemSubmit()">加入預設清單</button>
+        <button class="btn-chip" id="tplRewardCancelBtn" style="display:none; flex:1;" onclick="cancelRewardTemplateItemEdit()">取消</button>
+      </div>
+      <button onclick="restoreFactoryRewardTemplate()" style="width:100%; margin-top:10px; background:none; border:none; font-size:12px; color:#DC2626; text-decoration:underline; cursor:pointer;">
+        🔄 回復原廠預設 5 大心願
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 彈窗 4：統計與成長證明 -->
+<div class="modal-cover" id="statsModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span>📜 榮譽證明與星數統計</span>
+      <button class="btn-close" onclick="closeModal('statsModal')">✕</button>
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <button class="btn-chip" id="tabWeek" style="flex:1;" onclick="setStatsRange('week')">過去一週</button>
+      <button class="btn-chip" id="tabMonth" style="flex:1;" onclick="setStatsRange('month')">過去一個月</button>
+      <button class="btn-chip" id="tabCustom" style="flex:1;" onclick="setStatsRange('custom')">自訂區間</button>
+    </div>
+    <div id="customDateBox" style="display:none; background:#F1F5F9; padding:10px; border-radius:12px; margin-bottom:14px; gap:8px; align-items:center; justify-content:center; font-size:14px; font-weight:800;">
+      <input type="date" id="statsStart" class="form-input" style="font-size:14px; padding:4px;">
+      <span>至</span>
+      <input type="date" id="statsEnd" class="form-input" style="font-size:14px; padding:4px;">
+      <button class="btn-chip" style="padding:6px 10px;" onclick="renderStatsContent()">查閱</button>
+    </div>
+    <div id="statsSheetContent"></div>
+  </div>
+</div>
+
+<!-- 彈窗 5：備份與還原 -->
+<div class="modal-cover" id="backupModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span>💾 資料備份與還原</span>
+      <button class="btn-close" onclick="closeModal('backupModal')">✕</button>
+    </div>
+    <p style="font-size:13px; font-weight:800; color:#64748B; margin-bottom:10px;">
+      將文字貼於下方欄位，點擊「📥 貼上還原」即可恢復完整紀錄！
+    </p>
+    <div class="form-row">
+      <textarea id="backupArea" class="form-input" style="height:120px; font-size:13px;" placeholder="在此處貼上備份代碼..."></textarea>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn-main" style="flex:1;" onclick="copyBackup()">📋 複製代碼</button>
+      <button class="btn-main" style="flex:1; background:#059669;" onclick="restoreBackup()">📥 貼上還原</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toastBox">提示訊息</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDgwSqbYVGtR2S1wkQTjHN7fh3NBclspx8",
+    authDomain: "kids-checklist-efeea.firebaseapp.com",
+    databaseURL: "https://kids-checklist-efeea-default-rtdb.firebaseio.com",
+    projectId: "kids-checklist-efeea",
+    storageBucket: "kids-checklist-efeea.firebasestorage.app",
+    messagingSenderId: "960965467732",
+    appId: "1:960965467732:web:efc5858c22e0b1188117c1"
+  };
+
+  const FACTORY_10_TASKS = [
+    { id: "t1", title: "收餐袋水壺", hint: "3 MIN", icon: "🎒", type: "regular", stars: 1, penalty: 0 },
+    { id: "t2", title: "拿聯絡簿", hint: "3 MIN", icon: "📖", type: "regular", stars: 1, penalty: 0 },
+    { id: "t3", title: "洗手", hint: "1 MIN", icon: "🧼", type: "regular", stars: 1, penalty: 0 },
+    { id: "t4", title: "吃飯", hint: "30 MIN", icon: "🍚", type: "regular", stars: 2, penalty: 0 },
+    { id: "t5", title: "玩耍時間", hint: "自訂", icon: "🤖", type: "timer", minutes: 30, warnMinutes: 3, stars: 1, penalty: 0 },
+    { id: "t6", title: "收書桌", hint: "", icon: "📚", type: "regular", stars: 1, penalty: 0 },
+    { id: "t7", title: "準時上樓", hint: "準備睡覺", icon: "⏰", type: "time_set", stars: 1, penalty: 0 },
+    { id: "t8", title: "洗澡", hint: "10 MIN", icon: "🛁", type: "regular", stars: 1, penalty: 0 },
+    { id: "t9", title: "吃魚油", hint: "", icon: "💊", type: "regular", stars: 1, penalty: 0 },
+    { id: "t10", title: "噴鼻噴劑", hint: "", icon: "✨", type: "regular", stars: 1, penalty: 0 }
+  ];
+
+  const FACTORY_DEFAULT_REWARDS = [
+    { id: "r1", title: "看卡通 20 分鐘", icon: "📺", cost: 5 },
+    { id: "r2", title: "吃布丁或小冰淇淋", icon: "🍮", cost: 10 },
+    { id: "r3", title: "去公園玩溜滑梯", icon: "🎠", cost: 15 },
+    { id: "r4", title: "挑選一本新故事繪本", icon: "📚", cost: 25 },
+    { id: "r5", title: "週末去吃喜愛的餐廳", icon: "🍟", cost: 40 }
+  ];
+
+  function toSafeArray(val, fallback) {
+    if (!val) return JSON.parse(JSON.stringify(fallback));
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'object') return Object.values(val);
+    return JSON.parse(JSON.stringify(fallback));
+  }
+
+  let customTemplateTasks = (function() {
+    try {
+      const saved = localStorage.getItem("kids_checklist_custom_tpl");
+      if (saved) return toSafeArray(JSON.parse(saved), FACTORY_10_TASKS);
+    } catch(e) {}
+    return JSON.parse(JSON.stringify(FACTORY_10_TASKS));
+  })();
+
+  let customTemplateRewards = (function() {
+    try {
+      const saved = localStorage.getItem("kids_checklist_reward_tpl");
+      if (saved) return toSafeArray(JSON.parse(saved), FACTORY_DEFAULT_REWARDS);
+    } catch(e) {}
+    return JSON.parse(JSON.stringify(FACTORY_DEFAULT_REWARDS));
+  })();
+
+  function getInitKids() {
+    return [
+      { id: "kid_1", name: "晞 Arthur", customTitle: "晞 Arthur 的每日任務", emoji: "🦁", avatar: null, tasks: JSON.parse(JSON.stringify(customTemplateTasks)), rewards: JSON.parse(JSON.stringify(customTemplateRewards)) },
+      { id: "kid_2", name: "二寶", customTitle: "二寶 的每日任務", emoji: "🐰", avatar: null, tasks: JSON.parse(JSON.stringify(customTemplateTasks)), rewards: JSON.parse(JSON.stringify(customTemplateRewards)) }
+    ];
+  }
+
+  function cleanOldCache() {
+    const obsoleteKeys = ["blank_kids_list", "blank_kids_records", "blank_kids_list_dual", "blank_kids_list_shop", "blank_kids_list_v16", "blank_kids_list_v17"];
+    obsoleteKeys.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+  }
+  cleanOldCache();
+
+  let kidsList = getInitKids();
+  try {
+    const saved = localStorage.getItem("kids_checklist_safe_data");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const arr = toSafeArray(parsed, getInitKids());
+      if (arr.length > 0) kidsList = arr;
+    }
+  } catch(e) {}
+
+  kidsList.forEach(k => {
+    k.rewards = toSafeArray(k.rewards, customTemplateRewards);
+    if (!k.customTitle) k.customTitle = `${k.name} 的每日任務`;
+  });
+
+  let currentKidId = (kidsList[0] && kidsList[0].id) ? kidsList[0].id : "kid_1";
+  let boardCurrentPage = 0;
+
+  let records = {};
+  try { records = JSON.parse(localStorage.getItem("kids_checklist_safe_records") || "{}"); } catch(e) {}
+
+  let redeemHistory = {};
+  try { redeemHistory = JSON.parse(localStorage.getItem("kids_checklist_safe_redeem") || "{}"); } catch(e) {}
+
+  let manualAdjustHistory = {};
+  try { manualAdjustHistory = JSON.parse(localStorage.getItem("kids_checklist_safe_adjust") || "{}"); } catch(e) {}
+
+  let currentRingtone = localStorage.getItem("timer_ringtone_safe") || "fanfare";
+  let currentRingtoneDuration = localStorage.getItem("timer_dur_safe") || "10";
+  let currentCheerSound = localStorage.getItem("cheer_sound_safe") || "cheer";
+
+  function getTodayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  let selectedDate = getTodayKey();
+
+  function saveLocalOnly() {
+    try {
+      localStorage.setItem("kids_checklist_safe_data", JSON.stringify(kidsList));
+      localStorage.setItem("kids_checklist_safe_records", JSON.stringify(records));
+      localStorage.setItem("kids_checklist_safe_redeem", JSON.stringify(redeemHistory));
+      localStorage.setItem("kids_checklist_safe_adjust", JSON.stringify(manualAdjustHistory));
+      localStorage.setItem("kids_checklist_custom_tpl", JSON.stringify(customTemplateTasks));
+      localStorage.setItem("kids_checklist_reward_tpl", JSON.stringify(customTemplateRewards));
+      localStorage.setItem("timer_ringtone_safe", currentRingtone);
+      localStorage.setItem("timer_dur_safe", currentRingtoneDuration);
+      localStorage.setItem("cheer_sound_safe", currentCheerSound);
+    } catch(err) {
+      cleanOldCache();
+      try {
+        localStorage.setItem("kids_checklist_safe_data", JSON.stringify(kidsList));
+        localStorage.setItem("kids_checklist_safe_records", JSON.stringify(records));
+      } catch(e) {}
+    }
+  }
+
+  function saveAll() {
+    saveLocalOnly();
+    if (isFirebaseReady && dbRef) {
+      dbRef.set({
+        kids: kidsList,
+        records: records,
+        redeemHistory: redeemHistory,
+        manualAdjustHistory: manualAdjustHistory,
+        customTemplateTasks: customTemplateTasks,
+        customTemplateRewards: customTemplateRewards,
+        ringtone: currentRingtone,
+        ringDuration: currentRingtoneDuration,
+        cheer: currentCheerSound,
+        updatedAt: Date.now()
+      }).catch(err => console.warn("背景同步稍後重試", err));
+    }
+  }
+
+  let dbRef = null;
+  let isFirebaseReady = false;
+  function initFirebaseSafely() {
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      dbRef = firebase.database().ref("family_tasks_data");
+      isFirebaseReady = true;
+
+      firebase.database().ref(".info/connected").on("value", function(snap) {
+        const dot = document.getElementById("syncDot");
+        const txt = document.getElementById("syncText");
+        if (dot && txt) {
+          if (snap.val() === true) {
+            dot.classList.remove("offline");
+            txt.innerText = "已連線";
+          } else {
+            dot.classList.add("offline");
+            txt.innerText = "本機模式";
+          }
+        }
+      });
+
+      dbRef.on("value", function(snapshot) {
+        const cloudData = snapshot.val();
+        if (!cloudData) {
+          saveAll();
+          return;
+        }
+
+        if (cloudData.kids) {
+          if (cloudData.customTemplateRewards) {
+            customTemplateRewards = toSafeArray(cloudData.customTemplateRewards, FACTORY_DEFAULT_REWARDS);
+          }
+          const safeKids = toSafeArray(cloudData.kids, kidsList);
+          safeKids.forEach(k => {
+            k.tasks = toSafeArray(k.tasks, customTemplateTasks);
+            k.rewards = toSafeArray(k.rewards, customTemplateRewards);
+            if (!k.customTitle) k.customTitle = `${k.name} 的每日任務`;
+          });
+          kidsList = safeKids;
+          records = cloudData.records || {};
+          redeemHistory = cloudData.redeemHistory || {};
+          manualAdjustHistory = cloudData.manualAdjustHistory || {};
+          if (cloudData.customTemplateTasks) {
+            customTemplateTasks = toSafeArray(cloudData.customTemplateTasks, FACTORY_10_TASKS);
+          }
+          if (cloudData.ringtone) currentRingtone = cloudData.ringtone;
+          if (cloudData.ringDuration) currentRingtoneDuration = cloudData.ringDuration;
+          if (cloudData.cheer) currentCheerSound = cloudData.cheer;
+
+          if (!kidsList.find(k => k.id === currentKidId)) currentKidId = kidsList[0].id;
+          saveLocalOnly();
+          renderKidsBar();
+          renderDualBoard();
+        }
+      });
+    } catch(err) {
+      const txt = document.getElementById("syncText");
+      if (txt) txt.innerText = "本機模式";
+    }
+  }
+
+  window.openModal = function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add("open");
+  };
+  window.closeModal = function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove("open");
+  };
+
+  function compressPhoto(file, maxWidth, maxHeight, quality, callback) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        let w = img.width;
+        let h = img.height;
+        if (w > h) {
+          if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; }
+        } else {
+          if (h > maxHeight) { w = Math.round((h * maxHeight) / h); h = maxHeight; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        callback(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => alert("圖片載入失敗，請重試！");
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function getCurrentKid() {
+    return kidsList.find(k => k.id === currentKidId) || kidsList[0];
+  }
+
+  // 需求 2：支援 taskTimes 物件以獨立儲存不同時間任務的時間
+  function getKidDateRecord(kidId, dateKey) {
+    if (!records[kidId]) records[kidId] = {};
+    if (!records[kidId][dateKey]) {
+      records[kidId][dateKey] = { status: {}, taskTimes: {} };
+    }
+    if (!records[kidId][dateKey].status) records[kidId][dateKey].status = {};
+    if (!records[kidId][dateKey].taskTimes) records[kidId][dateKey].taskTimes = {};
+    return records[kidId][dateKey];
+  }
+
+  window.autoSyncTitleInput = function(nameVal) {
+    const titleInput = document.getElementById("kidCustomTitleInput");
+    if (titleInput && (!titleInput.dataset.manualEdited || titleInput.value === "")) {
+      titleInput.value = nameVal ? `${nameVal} 的每日任務` : "";
+    }
+  };
+
+  window.openKidsModal = function() {
+    cancelKidEdit();
+    renderKidsSheet();
+    openModal("kidsModal");
+  };
+
+  function renderKidsSheet() {
+    const list = document.getElementById("kidsListSheet");
+    if (!list) return;
+    list.innerHTML = "";
+
+    kidsList.forEach(k => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#F8FAFC; border:2px solid var(--border-line); border-radius:12px; margin-bottom:8px;";
+      const thumb = k.avatar 
+        ? `<img src="${k.avatar}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px;border:1.5px solid var(--border-line);">` 
+        : `<span style="margin-right:8px;font-size:24px;">${k.emoji || "🌟"}</span>`;
+
+      row.innerHTML = `
+        <div style="font-weight:900; font-size:16px; display:flex; align-items:center;">
+          ${thumb} <span>${k.name}</span>
+          <span style="font-size:12px; color:#64748B; margin-left:8px;">[${k.customTitle || (k.name + " 的每日任務")}]</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-chip" style="padding:4px 8px; font-size:13px;" onclick="startEditKid('${k.id}')">✏️ 編輯</button>
+          ${kidsList.length > 1 ? `<button class="btn-chip" style="padding:4px 8px; font-size:13px; color:#DC2626;" onclick="deleteKid('${k.id}')">刪</button>` : ''}
+        </div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  window.startEditKid = function(kidId) {
+    const kid = kidsList.find(k => k.id === kidId);
+    if (!kid) return;
+    document.getElementById("editKidId").value = kid.id;
+    document.getElementById("kidNameInput").value = kid.name;
+    const titleInput = document.getElementById("kidCustomTitleInput");
+    titleInput.value = kid.customTitle || `${kid.name} 的每日任務`;
+    titleInput.dataset.manualEdited = "true";
+    document.getElementById("kidEmojiInput").value = kid.emoji || "🌟";
+    document.getElementById("kidFormTitle").innerText = `✏️ 修改【${kid.name}】的資料與標題`;
+    document.getElementById("kidSaveBtn").innerText = "儲存修改";
+    document.getElementById("kidCancelBtn").style.display = "block";
+    document.getElementById("templateChoiceRow").style.display = "none";
+  };
+
+  window.cancelKidEdit = function() {
+    document.getElementById("editKidId").value = "";
+    document.getElementById("kidNameInput").value = "";
+    const titleInput = document.getElementById("kidCustomTitleInput");
+    titleInput.value = "";
+    delete titleInput.dataset.manualEdited;
+    document.getElementById("kidEmojiInput").value = "🌟";
+    document.getElementById("kidPhotoInput").value = "";
+    document.getElementById("kidFormTitle").innerText = "➕ 新增孩子";
+    document.getElementById("kidSaveBtn").innerText = "新增孩子";
+    document.getElementById("kidCancelBtn").style.display = "none";
+    document.getElementById("templateChoiceRow").style.display = "block";
+  };
+
+  window.saveKidSubmit = function() {
+    const editId = document.getElementById("editKidId").value;
+    const name = document.getElementById("kidNameInput").value.trim();
+    const customTitle = document.getElementById("kidCustomTitleInput").value.trim() || `${name} 的每日任務`;
+    const emoji = document.getElementById("kidEmojiInput").value.trim() || "🌟";
+    const photoInput = document.getElementById("kidPhotoInput");
+    const copyTemplate = document.getElementById("copyTemplateCheck").checked;
+
+    if (!name) return alert("請輸入姓名！");
+
+    const commit = (avatarData) => {
+      try {
+        if (editId) {
+          const kid = kidsList.find(k => k.id === editId);
+          if (kid) {
+            kid.name = name;
+            kid.customTitle = customTitle;
+            kid.emoji = emoji;
+            if (avatarData) kid.avatar = avatarData;
+            saveAll();
+            renderKidsBar();
+            renderDualBoard();
+            renderKidsSheet();
+            cancelKidEdit();
+            showToast(`已更新：${name}`);
+          }
+        } else {
+          const newKid = {
+            id: "kid_" + Date.now(),
+            name: name,
+            customTitle: customTitle,
+            emoji: emoji,
+            avatar: avatarData || null,
+            tasks: copyTemplate ? JSON.parse(JSON.stringify(customTemplateTasks)) : [],
+            rewards: JSON.parse(JSON.stringify(customTemplateRewards))
+          };
+          kidsList.push(newKid);
+          currentKidId = newKid.id;
+          saveAll();
+          renderKidsBar();
+          renderDualBoard();
+          renderKidsSheet();
+          cancelKidEdit();
+          closeModal("kidsModal");
+          showToast(`已建立專屬清單：${name} 🎉`);
+        }
+      } catch (err) {
+        saveAll();
+        renderKidsBar();
+        renderDualBoard();
+        closeModal("kidsModal");
+      }
+    };
+
+    if (photoInput.files && photoInput.files[0]) {
+      compressPhoto(photoInput.files[0], 96, 96, 0.55, (comp) => commit(comp));
+    } else {
+      commit(null);
+    }
+  };
+
+  window.deleteKid = function(id) {
+    if (kidsList.length <= 1) return alert("至少保留一位孩子！");
+    if (confirm("確定刪除此孩子？其獨立任務、獎勵與紀錄將一併移除。")) {
+      kidsList = kidsList.filter(k => k.id !== id);
+      delete records[id];
+      delete redeemHistory[id];
+      delete manualAdjustHistory[id];
+      if (currentKidId === id) currentKidId = (kidsList[0] && kidsList[0].id) ? kidsList[0].id : "kid_1";
+      boardCurrentPage = 0;
+      saveAll();
+      renderKidsBar();
+      renderDualBoard();
+      renderKidsSheet();
+    }
+  };
+
+  // ==========================================
+  // 任務管理模組
+  // ==========================================
+  window.openTasksModal = function() {
+    try {
+      cancelTaskEdit();
+      setupTasksModalKidSelect();
+      renderTasksModalForKid(currentKidId);
+    } catch(err) {
+      if (kidsList.length > 0) currentKidId = kidsList[0].id;
+    }
+    openModal("tasksModal");
+  };
+
+  function setupTasksModalKidSelect() {
+    const sel = document.getElementById("taskModalKidSelect");
+    if (!sel) return;
+    sel.innerHTML = "";
+    if (!kidsList.some(k => k.id === currentKidId) && kidsList.length > 0) {
+      currentKidId = kidsList[0].id;
+    }
+    kidsList.forEach(k => {
+      const opt = document.createElement("option");
+      opt.value = k.id;
+      opt.innerText = `${k.emoji || "👤"} ${k.name}`;
+      if (k.id === currentKidId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  window.onTaskModalKidChanged = function(kidId) {
+    currentKidId = kidId;
+    renderTasksModalForKid(kidId);
+    saveLocalOnly();
+    renderKidsBar();
+    renderDualBoard();
+  };
+
+  function renderTasksModalForKid(kidId) {
+    const kid = kidsList.find(k => k.id === kidId) || kidsList[0];
+    if (kid) {
+      const nameSpan = document.getElementById("currentKidNameSpan");
+      if (nameSpan) nameSpan.innerText = kid.name;
+    }
+    const cheerSel = document.getElementById("cheerSelect");
+    if (cheerSel) cheerSel.value = currentCheerSound;
+    renderTaskSheetList();
+    renderAssignKidsCheckboxes();
+  }
+
+  function toggleTimerSettings(type) {
+    document.getElementById("timerExtraBox").style.display = (type === "timer") ? "block" : "none";
+  }
+
+  function togglePenaltyInput(checked) {
+    document.getElementById("penaltyBox").style.display = checked ? "block" : "none";
+  }
+
+  function renderAssignKidsCheckboxes(activeKidIds = []) {
+    const container = document.getElementById("assignKidsCheckboxes");
+    if (!container) return;
+    container.innerHTML = "";
+
+    kidsList.forEach(k => {
+      const lbl = document.createElement("label");
+      lbl.style.cssText = "display:inline-flex; align-items:center; gap:5px; font-size:14px; font-weight:800; cursor:pointer;";
+      const isCurrent = (k.id === currentKidId);
+      const isChecked = activeKidIds.length > 0 ? activeKidIds.includes(k.id) : isCurrent;
+      lbl.innerHTML = `
+        <input type="checkbox" class="assign-kid-cb" value="${k.id}" ${isChecked ? 'checked' : ''} style="transform:scale(1.2);">
+        <span>${k.name}${isCurrent ? ' (目前)' : ''}</span>
+      `;
+      container.appendChild(lbl);
+    });
+  }
+
+  window.toggleSelectAllAssignKids = function() {
+    const cbs = document.querySelectorAll(".assign-kid-cb");
+    const allChecked = Array.from(cbs).every(cb => cb.checked);
+    cbs.forEach(cb => cb.checked = !allChecked);
+  };
+
+  function renderTaskSheetList() {
+    const kid = getCurrentKid();
+    const list = document.getElementById("taskListSheet");
+    if (!list) return;
+    list.innerHTML = "";
+
+    const tasks = toSafeArray(kid ? kid.tasks : [], customTemplateTasks);
+    if (tasks.length === 0) {
+      list.innerHTML = `<div style="text-align:center; padding:10px; font-size:14px; color:#94A3B8;">目前無任務，請在下方新增！</div>`;
+      return;
+    }
+
+    tasks.forEach(t => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-bottom:1.5px solid #F1F5F9; font-size:15px; font-weight:800;";
+      let tag = (t.type === "timer") ? `⏱️${t.minutes||15}m` : (t.type === "time_set" ? `⏰時間` : '');
+      let penaltyTag = (Number(t.penalty) > 0) ? `<span style="font-size:12px; background:#FEE2E2; color:#B91C1C; padding:2px 6px; border-radius:6px; margin-left:4px;">-${t.penalty}⭐</span>` : '';
+
+      row.innerHTML = `
+        <div style="flex:1;">
+          ${t.icon} ${t.title} 
+          <span style="color:#C2410C;">+${t.stars||1}⭐</span>
+          ${penaltyTag}
+          ${tag ? `<span style="font-size:12px; background:#F1F5F9; padding:2px 6px; border-radius:6px; margin-left:4px;">${tag}</span>` : ''}
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-chip" style="padding:4px 8px; font-size:13px;" onclick="startEditTask('${t.id}')">✏️ 編輯</button>
+          <button class="btn-chip" style="padding:4px 8px; font-size:13px; color:#DC2626;" onclick="deleteTaskItem('${t.id}')">刪</button>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  window.startEditTask = function(taskId) {
+    const kid = getCurrentKid();
+    const task = toSafeArray(kid.tasks, customTemplateTasks).find(t => t.id === taskId);
+    if (!task) return;
+
+    document.getElementById("editTaskId").value = task.id;
+    document.getElementById("taskTitleInput").value = task.title;
+    document.getElementById("taskHintInput").value = task.hint || "";
+    document.getElementById("taskIconInput").value = task.icon || "📝";
+    document.getElementById("taskStarsInput").value = task.stars || 1;
+    document.getElementById("taskTypeSelect").value = task.type || "regular";
+
+    const hasPenalty = Number(task.penalty) > 0;
+    document.getElementById("enablePenaltyCheck").checked = hasPenalty;
+    document.getElementById("penaltyBox").style.display = hasPenalty ? "block" : "none";
+    document.getElementById("taskPenaltyInput").value = hasPenalty ? task.penalty : 1;
+
+    if (task.type === "timer") {
+      document.getElementById("taskMinutesInput").value = task.minutes || 15;
+      document.getElementById("taskWarnInput").value = task.warnMinutes || 3;
+      document.getElementById("timerExtraBox").style.display = "block";
+    } else {
+      document.getElementById("timerExtraBox").style.display = "none";
+    }
+
+    const sharedKidIds = [];
+    kidsList.forEach(k => {
+      if (k.tasks && k.tasks.some(t => t.title === task.title || t.id === taskId)) {
+        sharedKidIds.push(k.id);
+      }
+    });
+
+    renderAssignKidsCheckboxes(sharedKidIds);
+    document.getElementById("taskFormHeader").innerText = `✏️ 修改任務：【${task.title}】`;
+    document.getElementById("taskSaveBtn").innerText = "儲存修改（同步已選孩子）";
+    document.getElementById("taskCancelBtn").style.display = "block";
+  };
+
+  window.cancelTaskEdit = function() {
+    document.getElementById("editTaskId").value = "";
+    document.getElementById("taskTitleInput").value = "";
+    document.getElementById("taskHintInput").value = "";
+    document.getElementById("taskIconInput").value = "📝";
+    document.getElementById("taskStarsInput").value = 1;
+    document.getElementById("enablePenaltyCheck").checked = false;
+    document.getElementById("penaltyBox").style.display = "none";
+    document.getElementById("taskPenaltyInput").value = 1;
+    document.getElementById("taskTypeSelect").value = "regular";
+    document.getElementById("timerExtraBox").style.display = "none";
+
+    renderAssignKidsCheckboxes();
+    document.getElementById("taskFormHeader").innerText = "➕ 為孩子新增任務";
+    document.getElementById("taskSaveBtn").innerText = "儲存任務";
+    document.getElementById("taskCancelBtn").style.display = "none";
+  };
+
+  window.saveTaskSubmit = function() {
+    const editId = document.getElementById("editTaskId").value;
+    const title = document.getElementById("taskTitleInput").value.trim();
+    const hint = document.getElementById("taskHintInput").value.trim();
+    const icon = document.getElementById("taskIconInput").value.trim() || "📝";
+    const stars = parseInt(document.getElementById("taskStarsInput").value) || 1;
+    const type = document.getElementById("taskTypeSelect").value;
+    const enablePenalty = document.getElementById("enablePenaltyCheck").checked;
+    const penalty = enablePenalty ? (parseInt(document.getElementById("taskPenaltyInput").value) || 1) : 0;
+
+    if (!title) return alert("請輸入任務名稱！");
+
+    const selectedKidIds = Array.from(document.querySelectorAll(".assign-kid-cb:checked")).map(cb => cb.value);
+    if (selectedKidIds.length === 0) return alert("請至少勾選一位要套用此任務的孩子！");
+
+    if (editId) {
+      selectedKidIds.forEach(kId => {
+        const k = kidsList.find(item => item.id === kId);
+        if (k && k.tasks) {
+          let existingTask = k.tasks.find(t => t.id === editId || t.title === title);
+          if (existingTask) {
+            existingTask.title = title;
+            existingTask.hint = hint;
+            existingTask.icon = icon;
+            existingTask.stars = Math.max(1, stars);
+            existingTask.penalty = penalty;
+            existingTask.type = type;
+            if (type === "timer") {
+              existingTask.minutes = parseInt(document.getElementById("taskMinutesInput").value) || 15;
+              existingTask.warnMinutes = parseInt(document.getElementById("taskWarnInput").value) || 3;
+            } else {
+              delete existingTask.minutes; delete existingTask.warnMinutes;
+            }
+          } else {
+            k.tasks.push({
+              id: "task_" + Date.now() + "_" + Math.floor(Math.random()*1000),
+              title, hint, icon, type,
+              stars: Math.max(1, stars),
+              penalty: penalty,
+              minutes: type === "timer" ? (parseInt(document.getElementById("taskMinutesInput").value) || 15) : undefined,
+              warnMinutes: type === "timer" ? (parseInt(document.getElementById("taskWarnInput").value) || 3) : undefined
+            });
+          }
+        }
+      });
+      showToast(`已更新並同步【${title}】至 ${selectedKidIds.length} 位孩子！`);
+    } else {
+      const baseTaskId = "task_" + Date.now();
+      selectedKidIds.forEach((kId, idx) => {
+        const targetKid = kidsList.find(k => k.id === kId);
+        if (targetKid) {
+          if (!targetKid.tasks) targetKid.tasks = [];
+          const newTask = {
+            id: baseTaskId + "_" + idx,
+            title, hint, icon, type,
+            stars: Math.max(1, stars),
+            penalty: penalty
+          };
+          if (type === "timer") {
+            newTask.minutes = parseInt(document.getElementById("taskMinutesInput").value) || 15;
+            newTask.warnMinutes = parseInt(document.getElementById("taskWarnInput").value) || 3;
+          }
+          targetKid.tasks.push(newTask);
+        }
+      });
+      showToast(`已同步新增【${title}】至 ${selectedKidIds.length} 位孩子！🎉`);
+    }
+
+    saveAll();
+    renderTaskSheetList();
+    renderDualBoard();
+    cancelTaskEdit();
+  };
+
+  window.deleteTaskItem = function(taskId) {
+    const kid = getCurrentKid();
+    if (confirm("確定刪除此任務？")) {
+      kid.tasks = toSafeArray(kid.tasks, customTemplateTasks).filter(t => t.id !== taskId);
+      saveAll();
+      renderTaskSheetList();
+      renderDualBoard();
+      cancelTaskEdit();
+    }
+  };
+
+  window.loadTemplateForCurrentKid = function() {
+    const kid = getCurrentKid();
+    if (confirm(`確定要將最新的預設範本套用給【${kid.name}】嗎？`)) {
+      kid.tasks = JSON.parse(JSON.stringify(customTemplateTasks));
+      saveAll();
+      renderTaskSheetList();
+      renderDualBoard();
+      closeModal("tasksModal");
+      showToast(`已載入範本給【${kid.name}】！`);
+    }
+  };
+
+  // ==========================================
+  // 全家預設任務範本自訂編輯器
+  // ==========================================
+  window.openTemplateEditorModal = function() {
+    cancelTemplateItemEdit();
+    renderTemplateItemsSheet();
+    openModal("templateEditorModal");
+  };
+
+  function renderTemplateItemsSheet() {
+    const list = document.getElementById("templateItemsList");
+    if (!list) return;
+    list.innerHTML = "";
+
+    customTemplateTasks.forEach(t => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-bottom:1.5px solid #F1F5F9; font-size:14px; font-weight:800;";
+      row.innerHTML = `
+        <div style="flex:1;">
+          ${t.icon} ${t.title} <span style="color:#C2410C;">+${t.stars||1}⭐</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-chip" style="padding:2px 6px; font-size:12px;" onclick="startEditTemplateItem('${t.id}')">✏️</button>
+          <button class="btn-chip" style="padding:2px 6px; font-size:12px; color:#DC2626;" onclick="deleteTemplateItem('${t.id}')">刪</button>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  window.startEditTemplateItem = function(id) {
+    const item = customTemplateTasks.find(t => t.id === id);
+    if (!item) return;
+    document.getElementById("editTemplateItemId").value = item.id;
+    document.getElementById("tplTitleInput").value = item.title;
+    document.getElementById("tplIconInput").value = item.icon || "📝";
+    document.getElementById("tplStarsInput").value = item.stars || 1;
+
+    document.getElementById("templateFormTitle").innerText = `✏️ 修改範本：【${item.title}】`;
+    document.getElementById("tplSaveBtn").innerText = "儲存修改";
+    document.getElementById("tplCancelBtn").style.display = "block";
+  };
+
+  window.cancelTemplateItemEdit = function() {
+    document.getElementById("editTemplateItemId").value = "";
+    document.getElementById("tplTitleInput").value = "";
+    document.getElementById("tplIconInput").value = "📝";
+    document.getElementById("tplStarsInput").value = 1;
+
+    document.getElementById("templateFormTitle").innerText = "➕ 新增範本項目";
+    document.getElementById("tplSaveBtn").innerText = "加入範本";
+    document.getElementById("tplCancelBtn").style.display = "none";
+  };
+
+  window.saveTemplateItemSubmit = function() {
+    const editId = document.getElementById("editTemplateItemId").value;
+    const title = document.getElementById("tplTitleInput").value.trim();
+    const icon = document.getElementById("tplIconInput").value.trim() || "📝";
+    const stars = parseInt(document.getElementById("tplStarsInput").value) || 1;
+
+    if (!title) return alert("請輸入項目名稱！");
+
+    if (editId) {
+      const item = customTemplateTasks.find(t => t.id === editId);
+      if (item) {
+        item.title = title;
+        item.icon = icon;
+        item.stars = Math.max(1, stars);
+      }
+    } else {
+      customTemplateTasks.push({
+        id: "tpl_" + Date.now(),
+        title, icon,
+        stars: Math.max(1, stars),
+        type: "regular",
+        penalty: 0
+      });
+    }
+
+    saveAll();
+    renderTemplateItemsSheet();
+    cancelTemplateItemEdit();
+    showToast("預設範本已更新！");
+  };
+
+  window.deleteTemplateItem = function(id) {
+    if (confirm("確定從預設範本中移除此項目？（不會影響已建立的孩子清單）")) {
+      customTemplateTasks = customTemplateTasks.filter(t => t.id !== id);
+      saveAll();
+      renderTemplateItemsSheet();
+      cancelTemplateItemEdit();
+    }
+  };
+
+  window.restoreFactoryTemplate = function() {
+    if (confirm("確定要將預設範本回復為最初的「原廠經典 10 項」嗎？")) {
+      customTemplateTasks = JSON.parse(JSON.stringify(FACTORY_10_TASKS));
+      saveAll();
+      renderTemplateItemsSheet();
+      cancelTemplateItemEdit();
+      showToast("已回復原廠 10 項範本！");
+    }
+  };
+
+  // ==========================================
+  // 獎勵商店模組
+  // ==========================================
+  window.openShopModal = function() {
+    try {
+      cancelRewardEdit();
+      setupShopModalKidSelect();
+      renderShopModalForKid(currentKidId);
+    } catch(err) {
+      if (kidsList.length > 0) currentKidId = kidsList[0].id;
+    }
+    openModal("shopModal");
+  };
+
+  function setupShopModalKidSelect() {
+    const sel = document.getElementById("shopModalKidSelect");
+    if (!sel) return;
+    sel.innerHTML = "";
+    if (!kidsList.some(k => k.id === currentKidId) && kidsList.length > 0) {
+      currentKidId = kidsList[0].id;
+    }
+    kidsList.forEach(k => {
+      const opt = document.createElement("option");
+      opt.value = k.id;
+      opt.innerText = `${k.emoji || "👤"} ${k.name}`;
+      if (k.id === currentKidId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  window.onShopModalKidChanged = function(kidId) {
+    currentKidId = kidId;
+    renderShopModalForKid(kidId);
+    saveLocalOnly();
+    renderKidsBar();
+    renderDualBoard();
+  };
+
+  function renderShopModalForKid(kidId) {
+    const kid = kidsList.find(k => k.id === kidId) || kidsList[0];
+    if (kid) {
+      if (!kid.rewards || kid.rewards.length === 0) {
+        kid.rewards = JSON.parse(JSON.stringify(customTemplateRewards));
+        saveAll();
+      }
+      const shopKidSpan = document.getElementById("shopKidName");
+      if (shopKidSpan) shopKidSpan.innerText = kid.name;
+    }
+    updateShopBalanceUI();
+    renderRewardList();
+    renderAssignRewardsCheckboxes();
+  }
+
+  window.restoreDefaultRewardsForCurrentKid = function() {
+    const kid = getCurrentKid();
+    if (confirm(`確定要為【${kid.name}】載入全家預設的心願獎勵清單嗎？`)) {
+      kid.rewards = JSON.parse(JSON.stringify(customTemplateRewards));
+      saveAll();
+      renderRewardList();
+      showToast(`已載入預設獎勵給【${kid.name}】！`);
+    }
+  };
+
+  function updateShopBalanceUI() {
+    const kid = getCurrentKid();
+    const balance = getAvailableStars(kid.id);
+    document.getElementById("shopStarBalance").innerText = `${balance} ⭐`;
+  }
+
+  function renderAssignRewardsCheckboxes(activeKidIds = []) {
+    const container = document.getElementById("assignRewardsCheckboxes");
+    if (!container) return;
+    container.innerHTML = "";
+
+    kidsList.forEach(k => {
+      const lbl = document.createElement("label");
+      lbl.style.cssText = "display:inline-flex; align-items:center; gap:5px; font-size:14px; font-weight:800; cursor:pointer;";
+      const isCurrent = (k.id === currentKidId);
+      const isChecked = activeKidIds.length > 0 ? activeKidIds.includes(k.id) : isCurrent;
+      lbl.innerHTML = `
+        <input type="checkbox" class="assign-reward-cb" value="${k.id}" ${isChecked ? 'checked' : ''} style="transform:scale(1.2);">
+        <span>${k.name}${isCurrent ? ' (目前)' : ''}</span>
+      `;
+      container.appendChild(lbl);
+    });
+  }
+
+  window.toggleSelectAllAssignRewards = function() {
+    const cbs = document.querySelectorAll(".assign-reward-cb");
+    const allChecked = Array.from(cbs).every(cb => cb.checked);
+    cbs.forEach(cb => cb.checked = !allChecked);
+  };
+
+  window.promptDirectSetBalance = function() {
+    const kid = getCurrentKid();
+    const currentBal = getAvailableStars(kid.id);
+    const targetInput = prompt(`【${kid.name}】目前計算餘額為 ${currentBal} ⭐。\n請輸入想要直接設定的「正確星星餘額」：`, currentBal);
+    if (targetInput === null) return;
+
+    const targetVal = parseInt(targetInput, 10);
+    if (isNaN(targetVal) || targetVal < 0) return alert("請輸入大於或等於 0 的整數！");
+
+    const diff = targetVal - currentBal;
+    if (diff === 0) return alert("輸入數值與目前相同，無須調整！");
+
+    if (!manualAdjustHistory[kid.id]) manualAdjustHistory[kid.id] = [];
+    manualAdjustHistory[kid.id].push({
+      type: diff > 0 ? 'add' : 'deduct',
+      stars: Math.abs(diff),
+      note: "家長校正餘額",
+      timestamp: Date.now(),
+      dateStr: getTodayKey()
+    });
+
+    saveAll();
+    SoundEngine.playCoinRedeemSound();
+    showToast(`已成功將【${kid.name}】餘額校正為 ${targetVal} ⭐！`);
+    updateShopBalanceUI();
+    renderDualBoard();
+  };
+
+  window.promptManualAdjustStars = function(type) {
+    const kid = getCurrentKid();
+    const isAdd = (type === 'add');
+    const actionText = isAdd ? "額外獎勵" : "手動扣除";
+    const starInput = prompt(`請輸入要為【${kid.name}】${actionText}的星星數量：`, "5");
+    if (!starInput) return;
+
+    const stars = parseInt(starInput, 10);
+    if (isNaN(stars) || stars <= 0) return alert("請輸入大於 0 的正整數！");
+
+    const note = prompt(`請輸入${actionText}的原因或備註 (選填)：`, isAdd ? "表現優良獎勵" : "生活常規扣分") || "";
+
+    if (!manualAdjustHistory[kid.id]) manualAdjustHistory[kid.id] = [];
+    manualAdjustHistory[kid.id].push({
+      type: type,
+      stars: stars,
+      note: note,
+      timestamp: Date.now(),
+      dateStr: getTodayKey()
+    });
+
+    saveAll();
+    if (isAdd) {
+      SoundEngine.playCoinRedeemSound();
+      showToast(`已為【${kid.name}】加 ${stars} ⭐！`);
+    } else {
+      SoundEngine.playDeductSound();
+      showToast(`已為【${kid.name}】扣除 ${stars} ⭐！`);
+    }
+
+    updateShopBalanceUI();
+    renderDualBoard();
+  };
+
+  function renderRewardList() {
+    const kid = getCurrentKid();
+    const container = document.getElementById("rewardListSheet");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const rewards = toSafeArray(kid ? kid.rewards : [], customTemplateRewards);
+    const currentBalance = getAvailableStars(kid ? kid.id : currentKidId);
+
+    if (rewards.length === 0) {
+      container.innerHTML = `<div style="text-align:center; padding:16px; font-size:15px; color:#94A3B8;">目前無自訂獎勵，請在下方新增或點擊載入預設！</div>`;
+      return;
+    }
+
+    rewards.forEach((r, idx) => {
+      const card = document.createElement("div");
+      card.className = "reward-card";
+      card.setAttribute("draggable", "true");
+      card.dataset.index = idx;
+      const canAfford = currentBalance >= Number(r.cost);
+
+      card.innerHTML = `
+        <div class="drag-grip reward-drag-grip" title="拖動調整獎勵順序">⠿</div>
+        <div class="reward-card-info">
+          <span style="font-size:30px;">${r.icon || '🎁'}</span>
+          <div>
+            <div style="font-size:17px; font-weight:900; color:var(--ink);">${r.title}</div>
+            <div style="font-size:14px; font-weight:900; color:#D97706;">需要 ${r.cost} ⭐</div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="btn-chip" style="padding:4px 8px; font-size:13px;" onclick="startEditReward('${r.id}')">✏️ 編輯</button>
+          <button class="btn-redeem" ${canAfford ? '' : 'disabled'} onclick="redeemRewardItem('${r.id}', '${r.title}', ${r.cost})">
+            ${canAfford ? '兌換' : '差 ' + (r.cost - currentBalance) + '⭐'}
+          </button>
+          <button class="btn-chip" style="padding:4px 8px; font-size:13px; color:#DC2626;" onclick="deleteRewardItem('${r.id}')">刪</button>
+        </div>
+      `;
+
+      bindRewardDragEvents(card, idx);
+      container.appendChild(card);
+    });
+  }
+
+  let dragRewardSrcIdx = null;
+  function bindRewardDragEvents(el, idx) {
+    el.addEventListener("dragstart", (e) => {
+      dragRewardSrcIdx = idx;
+      el.classList.add("is-dragging");
+    });
+    el.addEventListener("dragend", () => {
+      el.classList.remove("is-dragging");
+      document.querySelectorAll(".reward-card").forEach(c => c.classList.remove("drag-over"));
+    });
+    el.addEventListener("dragover", (e) => { e.preventDefault(); el.classList.add("drag-over"); });
+    el.addEventListener("dragleave", () => el.classList.remove("drag-over"));
+    el.addEventListener("drop", (e) => {
+      e.preventDefault();
+      el.classList.remove("drag-over");
+      if (dragRewardSrcIdx !== null && dragRewardSrcIdx !== idx) {
+        const kid = getCurrentKid();
+        const item = kid.rewards.splice(dragRewardSrcIdx, 1)[0];
+        kid.rewards.splice(idx, 0, item);
+        saveAll();
+        renderRewardList();
+        showToast("已更新獎勵項目順序 ↕️");
+      }
+    });
+
+    const grip = el.querySelector(".reward-drag-grip");
+    grip.addEventListener("touchstart", (e) => {
+      dragRewardSrcIdx = idx;
+      el.classList.add("is-dragging");
+    }, { passive: true });
+    grip.addEventListener("touchmove", (e) => {
+      const touch = e.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const row = target ? target.closest(".reward-card") : null;
+      document.querySelectorAll(".reward-card").forEach(c => c.classList.remove("drag-over"));
+      if (row && row !== el) row.classList.add("drag-over");
+    }, { passive: true });
+    grip.addEventListener("touchend", (e) => {
+      el.classList.remove("is-dragging");
+      const changed = e.changedTouches[0];
+      const target = document.elementFromPoint(changed.clientX, changed.clientY);
+      const row = target ? target.closest(".reward-card") : null;
+      document.querySelectorAll(".reward-card").forEach(c => c.classList.remove("drag-over"));
+      if (row && row.dataset.index !== undefined) {
+        const targetIdx = parseInt(row.dataset.index);
+        if (dragRewardSrcIdx !== null && dragRewardSrcIdx !== targetIdx) {
+          const kid = getCurrentKid();
+          const item = kid.rewards.splice(dragRewardSrcIdx, 1)[0];
+          kid.rewards.splice(targetIdx, 0, item);
+          saveAll();
+          renderRewardList();
+          showToast("已更新獎勵項目順序 ↕️");
+        }
+      }
+      dragRewardSrcIdx = null;
+    });
+  }
+
+  window.startEditReward = function(rewardId) {
+    const kid = getCurrentKid();
+    const r = toSafeArray(kid.rewards, customTemplateRewards).find(item => item.id === rewardId);
+    if (!r) return;
+
+    document.getElementById("editRewardId").value = r.id;
+    document.getElementById("newRewardTitle").value = r.title;
+    document.getElementById("newRewardIcon").value = r.icon || "🎁";
+    document.getElementById("newRewardCost").value = r.cost;
+
+    const sharedKidIds = [];
+    kidsList.forEach(k => {
+      if (k.rewards && k.rewards.some(item => item.title === r.title || item.id === rewardId)) {
+        sharedKidIds.push(k.id);
+      }
+    });
+
+    renderAssignRewardsCheckboxes(sharedKidIds);
+    document.getElementById("rewardFormHeader").innerText = `✏️ 修改獎勵：【${r.title}】`;
+    document.getElementById("rewardSaveBtn").innerText = "儲存修改（套用已選孩子）";
+    document.getElementById("rewardCancelBtn").style.display = "block";
+  };
+
+  window.cancelRewardEdit = function() {
+    document.getElementById("editRewardId").value = "";
+    document.getElementById("newRewardTitle").value = "";
+    document.getElementById("newRewardIcon").value = "🎁";
+    document.getElementById("newRewardCost").value = 10;
+    renderAssignRewardsCheckboxes();
+    document.getElementById("rewardFormHeader").innerText = "➕ 新增 / 編輯心願獎勵";
+    document.getElementById("rewardSaveBtn").innerText = "儲存獎勵項目";
+    document.getElementById("rewardCancelBtn").style.display = "none";
+  };
+
+  window.saveRewardSubmit = function() {
+    const editId = document.getElementById("editRewardId").value;
+    const title = document.getElementById("newRewardTitle").value.trim();
+    const icon = document.getElementById("newRewardIcon").value.trim() || "🎁";
+    const cost = parseInt(document.getElementById("newRewardCost").value) || 10;
+
+    if (!title) return alert("請輸入獎勵名稱！");
+
+    const selectedKidIds = Array.from(document.querySelectorAll(".assign-reward-cb:checked")).map(cb => cb.value);
+    if (selectedKidIds.length === 0) return alert("請至少勾選一位要套用此獎勵的孩子！");
+
+    if (editId) {
+      selectedKidIds.forEach(kId => {
+        const k = kidsList.find(item => item.id === kId);
+        if (k && k.rewards) {
+          let target = k.rewards.find(item => item.id === editId || item.title === title);
+          if (target) {
+            target.title = title;
+            target.icon = icon;
+            target.cost = Math.max(1, cost);
+          } else {
+            k.rewards.push({ id: "r_" + Date.now() + "_" + Math.floor(Math.random()*1000), title, icon, cost: Math.max(1, cost) });
+          }
+        }
+      });
+      showToast(`已更新並套用【${title}】至 ${selectedKidIds.length} 位孩子！`);
+    } else {
+      const baseRewardId = "r_" + Date.now();
+      selectedKidIds.forEach((kId, idx) => {
+        const targetKid = kidsList.find(k => k.id === kId);
+        if (targetKid) {
+          if (!targetKid.rewards) targetKid.rewards = [];
+          targetKid.rewards.push({
+            id: baseRewardId + "_" + idx,
+            title,
+            icon,
+            cost: Math.max(1, cost)
+          });
+        }
+      });
+      showToast(`已將【${title}】同步新增給 ${selectedKidIds.length} 位孩子！🎁`);
+    }
+
+    saveAll();
+    renderRewardList();
+    cancelRewardEdit();
+  };
+
+  window.redeemRewardItem = function(rewardId, title, cost) {
+    const kid = getCurrentKid();
+    const currentBalance = getAvailableStars(kid.id);
+
+    if (currentBalance < cost) {
+      return alert(`星星不足喔！目前只有 ${currentBalance} 顆，還需要 ${cost - currentBalance} 顆！`);
+    }
+
+    if (confirm(`確定要為【${kid.name}】扣除 ${cost} 顆星星，兌換【${title}】嗎？`)) {
+      if (!redeemHistory[kid.id]) redeemHistory[kid.id] = [];
+      redeemHistory[kid.id].push({
+        rewardId,
+        title,
+        cost: Number(cost),
+        timestamp: Date.now(),
+        dateStr: getTodayKey()
+      });
+
+      saveAll();
+      SoundEngine.playCoinRedeemSound();
+      try {
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+      } catch(e) {}
+
+      updateShopBalanceUI();
+      renderRewardList();
+      renderDualBoard();
+      showToast(`🎉 成功兌換【${title}】！請給孩子獎勵！`);
+    }
+  };
+
+  window.deleteRewardItem = function(rewardId) {
+    const kid = getCurrentKid();
+    if (confirm("確定要刪除這項自訂心願嗎？")) {
+      kid.rewards = toSafeArray(kid.rewards, customTemplateRewards).filter(r => r.id !== rewardId);
+      saveAll();
+      renderRewardList();
+      showToast("已刪除獎勵項目");
+    }
+  };
+
+  // ==========================================
+  // 全家預設獎勵清單編輯器
+  // ==========================================
+  window.openRewardTemplateEditorModal = function() {
+    cancelRewardTemplateItemEdit();
+    renderRewardTemplateItemsSheet();
+    openModal("rewardTemplateEditorModal");
+  };
+
+  function renderRewardTemplateItemsSheet() {
+    const list = document.getElementById("rewardTemplateItemsList");
+    if (!list) return;
+    list.innerHTML = "";
+
+    customTemplateRewards.forEach(r => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-bottom:1.5px solid #F1F5F9; font-size:14px; font-weight:800;";
+      row.innerHTML = `
+        <div style="flex:1;">
+          ${r.icon || '🎁'} ${r.title} <span style="color:#D97706;">(${r.cost}⭐)</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-chip" style="padding:2px 6px; font-size:12px;" onclick="startEditRewardTemplateItem('${r.id}')">✏️</button>
+          <button class="btn-chip" style="padding:2px 6px; font-size:12px; color:#DC2626;" onclick="deleteRewardTemplateItem('${r.id}')">刪</button>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  window.startEditRewardTemplateItem = function(id) {
+    const item = customTemplateRewards.find(r => r.id === id);
+    if (!item) return;
+    document.getElementById("editRewardTemplateItemId").value = item.id;
+    document.getElementById("tplRewardTitleInput").value = item.title;
+    document.getElementById("tplRewardIconInput").value = item.icon || "🎁";
+    document.getElementById("tplRewardCostInput").value = item.cost || 10;
+
+    document.getElementById("rewardTemplateFormTitle").innerText = `✏️ 修改預設：【${item.title}】`;
+    document.getElementById("tplRewardSaveBtn").innerText = "儲存修改";
+    document.getElementById("tplRewardCancelBtn").style.display = "block";
+  };
+
+  window.cancelRewardTemplateItemEdit = function() {
+    document.getElementById("editRewardTemplateItemId").value = "";
+    document.getElementById("tplRewardTitleInput").value = "";
+    document.getElementById("tplRewardIconInput").value = "🎁";
+    document.getElementById("tplRewardCostInput").value = 10;
+
+    document.getElementById("rewardTemplateFormTitle").innerText = "➕ 新增預設獎勵";
+    document.getElementById("tplRewardSaveBtn").innerText = "加入預設清單";
+    document.getElementById("tplRewardCancelBtn").style.display = "none";
+  };
+
+  window.saveRewardTemplateItemSubmit = function() {
+    const editId = document.getElementById("editRewardTemplateItemId").value;
+    const title = document.getElementById("tplRewardTitleInput").value.trim();
+    const icon = document.getElementById("tplRewardIconInput").value.trim() || "🎁";
+    const cost = parseInt(document.getElementById("tplRewardCostInput").value) || 10;
+
+    if (!title) return alert("請輸入獎勵名稱！");
+
+    if (editId) {
+      const item = customTemplateRewards.find(r => r.id === editId);
+      if (item) {
+        item.title = title;
+        item.icon = icon;
+        item.cost = Math.max(1, cost);
+      }
+    } else {
+      customTemplateRewards.push({
+        id: "rtpl_" + Date.now(),
+        title, icon,
+        cost: Math.max(1, cost)
+      });
+    }
+
+    saveAll();
+    renderRewardTemplateItemsSheet();
+    cancelRewardTemplateItemEdit();
+    showToast("全家預設心願清單已更新！");
+  };
+
+  window.deleteRewardTemplateItem = function(id) {
+    if (confirm("確定從全家預設清單中移除此項目？（不會刪除孩子現有的清單）")) {
+      customTemplateRewards = customTemplateRewards.filter(r => r.id !== id);
+      saveAll();
+      renderRewardTemplateItemsSheet();
+      cancelRewardTemplateItemEdit();
+    }
+  };
+
+  window.restoreFactoryRewardTemplate = function() {
+    if (confirm("確定要將預設心願回復為原廠的 5 大經典項目嗎？")) {
+      customTemplateRewards = JSON.parse(JSON.stringify(FACTORY_DEFAULT_REWARDS));
+      saveAll();
+      renderRewardTemplateItemsSheet();
+      cancelRewardTemplateItemEdit();
+      showToast("已回復原廠 5 大心願！");
+    }
+  };
+
+  // ==========================================
+  // 番茄鐘模組
+  // ==========================================
+  let timerObj = {
+    interval: null,
+    ringLoop: null,
+    ringTimeout: null,
+    targetMode: "single",
+    kidId: null,
+    taskId: null,
+    title: "",
+    totalSec: 0,
+    remainSec: 0,
+    warnSec: 0,
+    isRunning: false,
+    warned: false,
+    targetEndTime: 0
+  };
+
+  function updateRingtone(val) { currentRingtone = val; saveAll(); showToast("鈴聲已更新"); }
+  function updateRingtoneDuration(val) { currentRingtoneDuration = val; saveAll(); showToast("響鈴秒數已更新"); }
+  function testRingtone() { SoundEngine.playRingtone(currentRingtone); }
+  function updateCheerSound(val) { currentCheerSound = val; saveAll(); showToast("慶祝音效已更新"); }
+  function testCheerSound() { SoundEngine.playCelebration(currentCheerSound); }
+
+  function openTimerForKid(kidId, taskId, title, minutes, warnMinutes) {
+    SoundEngine.init();
+    timerObj.kidId = kidId;
+    timerObj.taskId = taskId;
+    timerObj.title = title;
+
+    const targetSelect = document.getElementById("timerKidTargetSelect");
+    targetSelect.innerHTML = "";
+    
+    kidsList.forEach(k => {
+      const opt = document.createElement("option");
+      opt.value = k.id;
+      opt.innerText = `👤 ${k.name}`;
+      if (k.id === kidId) opt.selected = true;
+      targetSelect.appendChild(opt);
+    });
+
+    if (kidsList.length >= 2) {
+      const bothOpt = document.createElement("option");
+      bothOpt.value = "both";
+      bothOpt.innerText = `👥 兩位一起計時（同步）`;
+      targetSelect.appendChild(bothOpt);
+    }
+
+    timerObj.targetMode = targetSelect.value === "both" ? "both" : "single";
+
+    document.getElementById("timerTitle").innerText = `⏱️ ${title}`;
+    document.getElementById("timerRingtoneSelect").value = currentRingtone;
+    document.getElementById("timerDurationSelect").value = currentRingtoneDuration;
+
+    const total = Math.max(1, minutes) * 60;
+    timerObj.totalSec = total;
+    timerObj.remainSec = total;
+    timerObj.warnSec = Math.max(0, warnMinutes) * 60;
+    timerObj.isRunning = false;
+    timerObj.warned = false;
+
+    document.getElementById("timerWarnText").style.display = "none";
+    document.getElementById("timerStartPauseBtn").innerText = "▶ 開始計時";
+    document.getElementById("timerStartPauseBtn").style.background = "var(--accent-coral)";
+    document.getElementById("miniFloatTimer").classList.remove("active");
+
+    updateTimerUI();
+    openModal("timerModal");
+  }
+
+  function onTimerTargetChange(val) {
+    if (val === "both") {
+      timerObj.targetMode = "both";
+      showToast("已切換為：雙寶一起同步計時 👥");
+    } else {
+      timerObj.targetMode = "single";
+      timerObj.kidId = val;
+      showToast(`已切換為：${(kidsList.find(k=>k.id===val)||{}).name} 單獨計時`);
+    }
+  }
+
+  function toggleTimerRunning() {
+    timerObj.isRunning = !timerObj.isRunning;
+    const btn = document.getElementById("timerStartPauseBtn");
+    if (timerObj.isRunning) {
+      btn.innerText = "⏸ 暫停計時";
+      btn.style.background = "#F59E0B";
+      timerObj.targetEndTime = Date.now() + (timerObj.remainSec * 1000);
+      clearInterval(timerObj.interval);
+      timerObj.interval = setInterval(timerTick, 1000);
+      showToast("番茄鐘開始倒數！");
+    } else {
+      btn.innerText = "▶ 繼續計時";
+      btn.style.background = "var(--accent-coral)";
+      clearInterval(timerObj.interval);
+      showToast("番茄鐘已暫停");
+    }
+  }
+
+  function timerTick() {
+    if (!timerObj.isRunning) return;
+    const now = Date.now();
+    timerObj.remainSec = Math.max(0, Math.round((timerObj.targetEndTime - now) / 1000));
+    updateTimerUI();
+
+    if (!timerObj.warned && timerObj.remainSec <= timerObj.warnSec && timerObj.remainSec > 0) {
+      timerObj.warned = true;
+      document.getElementById("timerWarnText").style.display = "block";
+      SoundEngine.playWarningDing();
+      showToast("🔔 快到時間囉！請準備收尾！");
+    }
+
+    if (timerObj.remainSec <= 0) {
+      clearInterval(timerObj.interval);
+      timerObj.isRunning = false;
+      onTimerFinished();
+    }
+  }
+
+  function adjustTimer(deltaSec) {
+    if (timerObj.isRunning) {
+      timerObj.targetEndTime += (deltaSec * 1000);
+      timerObj.remainSec = Math.max(10, Math.round((timerObj.targetEndTime - Date.now()) / 1000));
+      timerObj.totalSec = Math.max(timerObj.totalSec, timerObj.remainSec);
+    } else {
+      timerObj.remainSec = Math.max(10, timerObj.remainSec + deltaSec);
+      timerObj.totalSec = Math.max(timerObj.totalSec, timerObj.remainSec);
+    }
+    timerObj.warned = false;
+    document.getElementById("timerWarnText").style.display = "none";
+    updateTimerUI();
+    showToast(`時間調整：${deltaSec > 0 ? '+' : ''}${deltaSec / 60} 分鐘`);
+  }
+
+  function resetTimer() {
+    clearInterval(timerObj.interval);
+    timerObj.isRunning = false;
+    timerObj.remainSec = timerObj.totalSec;
+    timerObj.warned = false;
+    document.getElementById("timerWarnText").style.display = "none";
+    document.getElementById("timerStartPauseBtn").innerText = "▶ 開始計時";
+    document.getElementById("timerStartPauseBtn").style.background = "var(--accent-coral)";
+    updateTimerUI();
+  }
+
+  function onTimerFinished() {
+    SoundEngine.playRingtone(currentRingtone);
+    clearInterval(timerObj.ringLoop);
+    clearTimeout(timerObj.ringTimeout);
+
+    timerObj.ringLoop = setInterval(() => SoundEngine.playRingtone(currentRingtone), 1800);
+    if (currentRingtoneDuration !== "infinite") {
+      const dur = parseInt(currentRingtoneDuration, 10) || 10;
+      timerObj.ringTimeout = setTimeout(() => clearInterval(timerObj.ringLoop), dur * 1000);
+    }
+
+    closeModal("timerModal");
+    document.getElementById("miniFloatTimer").classList.remove("active");
+
+    const headerEl = document.getElementById("completeHeader");
+    const promptEl = document.getElementById("completePrompt");
+    const actionBox = document.getElementById("completeActionBox");
+    headerEl.innerText = "時間到了！";
+    actionBox.innerHTML = "";
+
+    if (timerObj.targetMode === "both" && kidsList.length >= 2) {
+      promptEl.innerText = `雙寶任務【${timerObj.title}】時間到了！兩位小朋友都完成了嗎？`;
+      
+      const btnBothDone = document.createElement("button");
+      btnBothDone.className = "btn-main";
+      btnBothDone.style.background = "#059669";
+      btnBothDone.innerText = `🎉 兩位都挑戰成功！（同時打勾加星）`;
+      btnBothDone.onclick = () => confirmDualTaskDone(true, true);
+      actionBox.appendChild(btnBothDone);
+
+      const btnKid1Only = document.createElement("button");
+      btnKid1Only.className = "btn-chip";
+      btnKid1Only.style.padding = "8px";
+      btnKid1Only.innerText = `👤 只有【${kidsList[0].name}】完成`;
+      btnKid1Only.onclick = () => confirmDualTaskDone(true, false);
+      actionBox.appendChild(btnKid1Only);
+
+      const btnKid2Only = document.createElement("button");
+      btnKid2Only.className = "btn-chip";
+      btnKid2Only.style.padding = "8px";
+      btnKid2Only.innerText = `👤 只有【${kidsList[1].name}】完成`;
+      btnKid2Only.onclick = () => confirmDualTaskDone(false, true);
+      actionBox.appendChild(btnKid2Only);
+
+      const btnNone = document.createElement("button");
+      btnNone.className = "btn-chip";
+      btnNone.style.padding = "8px";
+      btnNone.style.color = "#DC2626";
+      btnNone.innerText = `💪 都差一點點，下次加油！`;
+      btnNone.onclick = () => confirmDualTaskDone(false, false);
+      actionBox.appendChild(btnNone);
+
+    } else {
+      const targetKid = kidsList.find(k => k.id === timerObj.kidId);
+      const task = toSafeArray(targetKid.tasks, customTemplateTasks).find(t => t.id === timerObj.taskId);
+      const penalty = task ? (Number(task.penalty) || 0) : 0;
+      promptEl.innerText = `【${targetKid.name}】的任務【${timerObj.title}】時間到了，有順利完成嗎？`;
+
+      const btnDone = document.createElement("button");
+      btnDone.className = "btn-main";
+      btnDone.style.background = "#059669";
+      btnDone.innerText = `🎉 挑戰成功，已完成！（同步打勾領星）`;
+      btnDone.onclick = () => confirmSingleTaskDone(true);
+      actionBox.appendChild(btnDone);
+
+      const btnIncomplete = document.createElement("button");
+      btnIncomplete.className = "btn-chip";
+      btnIncomplete.style.padding = "10px";
+      btnIncomplete.style.color = penalty > 0 ? "#DC2626" : "#475569";
+      btnIncomplete.innerText = penalty > 0 ? `💪 未達成（扣除 ${penalty} ⭐）` : `💪 差一點點，下次加油！（不扣分）`;
+      btnIncomplete.onclick = () => confirmSingleTaskDone(false);
+      actionBox.appendChild(btnIncomplete);
+    }
+
+    openModal("completeModal");
+  }
+
+  function confirmSingleTaskDone(isDone) {
+    clearInterval(timerObj.ringLoop);
+    clearTimeout(timerObj.ringTimeout);
+    closeModal("completeModal");
+
+    const rec = getKidDateRecord(timerObj.kidId, selectedDate);
+    const targetKid = kidsList.find(k => k.id === timerObj.kidId);
+    const task = toSafeArray(targetKid.tasks, customTemplateTasks).find(t => t.id === timerObj.taskId);
+    const stars = task ? (Number(task.stars) || 1) : 1;
+    const penalty = task ? (Number(task.penalty) || 0) : 0;
+
+    if (isDone) {
+      if (timerObj.taskId) rec.status[timerObj.taskId] = 'done';
+      saveAll();
+      triggerStarCelebration(stars, timerObj.title);
+      renderDualBoard();
+      showToast(`已完成【${timerObj.title}】領取 ${stars} ⭐！`);
+    } else {
+      if (penalty > 0 && timerObj.taskId) {
+        rec.status[timerObj.taskId] = 'failed';
+        saveAll();
+        SoundEngine.playDeductSound();
+        showToast(`未達成【${timerObj.title}】，扣除 ${penalty} ⭐`);
+      } else {
+        if (timerObj.taskId) delete rec.status[timerObj.taskId];
+        saveAll();
+        showToast("沒關係，下一次一定會更順利！💪");
+      }
+      renderDualBoard();
+    }
+  }
+
+  function confirmDualTaskDone(kid1Done, kid2Done) {
+    clearInterval(timerObj.ringLoop);
+    clearTimeout(timerObj.ringTimeout);
+    closeModal("completeModal");
+
+    [kidsList[0], kidsList[1]].forEach((kid, idx) => {
+      const isDone = (idx === 0 ? kid1Done : kid2Done);
+      const rec = getKidDateRecord(kid.id, selectedDate);
+      const task = toSafeArray(kid.tasks, customTemplateTasks).find(t => t.title === timerObj.title || t.id === timerObj.taskId);
+      const stars = task ? (Number(task.stars) || 1) : 1;
+      const penalty = task ? (Number(task.penalty) || 0) : 0;
+      const tId = task ? task.id : timerObj.taskId;
+
+      if (isDone) {
+        if (tId) rec.status[tId] = 'done';
+      } else {
+        if (penalty > 0 && tId) rec.status[tId] = 'failed';
+        else if (tId) delete rec.status[tId];
+      }
+    });
+
+    saveAll();
+    if (kid1Done || kid2Done) {
+      triggerStarCelebration(2, timerObj.title);
+      showToast("雙寶任務結算完畢！🎉");
+    } else {
+      showToast("沒關係，下一次一起加油！💪");
+    }
+    renderDualBoard();
+  }
+
+  function getTimerColor(ratio) {
+    if (ratio > 0.5) return "#4CAF50";
+    if (ratio > 0.25) return "#FFD166";
+    return "#FF6B6B";
+  }
+
+  function updateTimerUI() {
+    const m = Math.floor(timerObj.remainSec / 60);
+    const s = timerObj.remainSec % 60;
+    const str = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    const clockDigits = document.getElementById("clockDigits");
+    if (clockDigits) clockDigits.innerText = str;
+
+    const fraction = timerObj.totalSec > 0 ? (timerObj.remainSec / timerObj.totalSec) : 0;
+    const color = getTimerColor(fraction);
+    const angle = fraction * 360;
+
+    const grad = `conic-gradient(${color} 0deg, ${color} ${angle}deg, transparent ${angle}deg)`;
+    const clockPie = document.getElementById("clockPie");
+    const clockWheel = document.getElementById("clockWheel");
+    if (clockPie) clockPie.style.background = grad;
+    if (clockWheel) clockWheel.style.borderColor = color;
+
+    const miniDigits = document.getElementById("miniDigits");
+    const miniPie = document.getElementById("miniPie");
+    if (miniDigits) miniDigits.innerText = str;
+    if (miniPie) miniPie.style.background = grad;
+  }
+
+  function minimizeTimer() {
+    closeModal("timerModal");
+    document.getElementById("miniFloatTimer").classList.add("active");
+    showToast("番茄鐘縮小至右下角持續計時 ⏱️");
+  }
+
+  function restoreTimerModal() {
+    document.getElementById("miniFloatTimer").classList.remove("active");
+    openModal("timerModal");
+  }
+
+  function closeTimerModal() {
+    clearInterval(timerObj.interval);
+    timerObj.isRunning = false;
+    document.getElementById("miniFloatTimer").classList.remove("active");
+    closeModal("timerModal");
+  }
+
+  // ========================================================
+  // 個人專屬「圓形動態時鐘」控制邏輯
+  // ========================================================
+  const inlineTimers = {};
+
+  window.initKidInlineTimer = function(kidId) {
+    if (!inlineTimers[kidId]) {
+      inlineTimers[kidId] = {
+        interval: null,
+        totalSec: 900,
+        remainSec: 900,
+        targetEndTime: 0,
+        isRunning: false
+      };
+    }
+  };
+
+  window.adjustInlineTimer = function(kidId, deltaSec) {
+    SoundEngine.init();
+    initKidInlineTimer(kidId);
+    const t = inlineTimers[kidId];
+    if (t.isRunning) {
+      t.targetEndTime += (deltaSec * 1000);
+      t.remainSec = Math.max(10, Math.round((t.targetEndTime - Date.now()) / 1000));
+      t.totalSec = Math.max(t.totalSec, t.remainSec);
+    } else {
+      t.remainSec = Math.max(10, t.remainSec + deltaSec);
+      t.totalSec = Math.max(t.totalSec, t.remainSec);
+    }
+    updateInlineTimerDisplay(kidId);
+  };
+
+  window.setInlineTimerMinutes = function(kidId, minutes) {
+    initKidInlineTimer(kidId);
+    const t = inlineTimers[kidId];
+    const sec = Math.max(1, parseInt(minutes) || 15) * 60;
+    t.totalSec = sec;
+    t.remainSec = sec;
+    if (t.isRunning) t.targetEndTime = Date.now() + (sec * 1000);
+    updateInlineTimerDisplay(kidId);
+  };
+
+  window.toggleInlineTimerRunning = function(kidId) {
+    SoundEngine.init();
+    initKidInlineTimer(kidId);
+    const t = inlineTimers[kidId];
+    t.isRunning = !t.isRunning;
+    const btn = document.getElementById(`inlineTimerBtn_${kidId}`);
+
+    if (t.isRunning) {
+      if (btn) { btn.innerText = "⏸ 暫停"; btn.style.background = "#F59E0B"; }
+      t.targetEndTime = Date.now() + (t.remainSec * 1000);
+      clearInterval(t.interval);
+      t.interval = setInterval(() => {
+        const now = Date.now();
+        t.remainSec = Math.max(0, Math.round((t.targetEndTime - now) / 1000));
+        updateInlineTimerDisplay(kidId);
+        if (t.remainSec <= 0) {
+          clearInterval(t.interval);
+          t.isRunning = false;
+          if (btn) { btn.innerText = "▶ 開始"; btn.style.background = "var(--accent-mint)"; }
+          SoundEngine.playRingtone(currentRingtone);
+          openTimerForKid(kidId, null, "專屬自主計時", Math.round(t.totalSec/60), 1);
+        }
+      }, 1000);
+    } else {
+      if (btn) { btn.innerText = "▶ 繼續"; btn.style.background = "var(--accent-mint)"; }
+      clearInterval(t.interval);
+    }
+  };
+
+  function updateInlineTimerDisplay(kidId) {
+    const t = inlineTimers[kidId];
+    if (!t) return;
+    const m = Math.floor(t.remainSec / 60);
+    const s = t.remainSec % 60;
+    const str = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    
+    const digitsEl = document.getElementById(`inlineTimerDisplay_${kidId}`);
+    if (digitsEl) digitsEl.innerText = str;
+
+    const fraction = t.totalSec > 0 ? (t.remainSec / t.totalSec) : 0;
+    const color = getTimerColor(fraction);
+    const angle = fraction * 360;
+
+    const pieEl = document.getElementById(`inlineClockPie_${kidId}`);
+    const wheelEl = document.getElementById(`inlineClockWheel_${kidId}`);
+    if (pieEl) {
+      pieEl.style.background = `conic-gradient(${color} 0deg, ${color} ${angle}deg, transparent ${angle}deg)`;
+    }
+    if (wheelEl) {
+      wheelEl.style.borderColor = color;
+    }
+  }
+
+  // ==========================================
+  // 固定分頁機制
+  // ==========================================
+  window.changeBoardPage = function(delta) {
+    const isDualMode = (window.innerWidth >= 900);
+    const pageSize = isDualMode ? 2 : 1;
+    const maxPage = Math.max(0, Math.ceil(kidsList.length / pageSize) - 1);
+    
+    boardCurrentPage = Math.max(0, Math.min(maxPage, boardCurrentPage + delta));
+    renderDualBoard();
+  };
+
+  function renderDualBoard() {
+    const container = document.getElementById("dualBoardContainer");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const isDualMode = (window.innerWidth >= 900);
+    const pageSize = isDualMode ? 2 : 1;
+    const maxPage = Math.max(0, Math.ceil(kidsList.length / pageSize) - 1);
+
+    if (boardCurrentPage > maxPage) boardCurrentPage = maxPage;
+
+    const paginationRow = document.getElementById("boardPaginationRow");
+    if (paginationRow) {
+      if (kidsList.length > pageSize) {
+        paginationRow.classList.add("visible");
+        document.getElementById("boardPageIndicator").innerText = `第 ${boardCurrentPage + 1} 頁 (共 ${maxPage + 1} 頁)`;
+      } else {
+        paginationRow.classList.remove("visible");
+      }
+    }
+
+    const startIndex = boardCurrentPage * pageSize;
+    const displayKids = kidsList.slice(startIndex, startIndex + pageSize);
+
+    displayKids.forEach((kid) => {
+      if (!kid) return;
+      const panel = document.createElement("div");
+      panel.className = "kid-column-panel";
+
+      const tasks = toSafeArray(kid.tasks, customTemplateTasks);
+      const currentRecord = getKidDateRecord(kid.id, selectedDate);
+      let totalPossible = 0;
+      let earned = 0;
+
+      tasks.forEach(t => {
+        const stars = Number(t.stars) || 1;
+        const penalty = Number(t.penalty) || 0;
+        totalPossible += stars;
+        const status = currentRecord.status[t.id] || null;
+        if (status === 'done') earned += stars;
+        else if (status === 'failed') earned = Math.max(0, earned - penalty);
+      });
+      earned = Math.max(0, earned);
+      const pct = totalPossible > 0 ? (earned / totalPossible) * 100 : 0;
+      const weekStars = calculateStarsByDays(kid.id, 7);
+      const badge = getBadgeInfo(weekStars);
+      const availableStars = getAvailableStars(kid.id);
+
+      const avatarHtml = kid.avatar
+        ? `<img src="${kid.avatar}" class="hero-avatar">`
+        : `<div class="hero-avatar">${kid.emoji || "🌟"}</div>`;
+
+      const displayTitle = kid.customTitle || `${kid.name} 的每日任務`;
+
+      initKidInlineTimer(kid.id);
+      const tState = inlineTimers[kid.id];
+      const m = Math.floor(tState.remainSec / 60);
+      const s = tState.remainSec % 60;
+      const timerDigits = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      const fraction = tState.totalSec > 0 ? (tState.remainSec / tState.totalSec) : 0;
+      const color = getTimerColor(fraction);
+      const angle = fraction * 360;
+
+      panel.innerHTML = `
+        <div class="hero-banner">
+          <div class="hero-user">
+            ${avatarHtml}
+            <h2 class="hero-title">${displayTitle}</h2>
+          </div>
+
+          <div class="kid-inline-timer-card">
+            <div class="inline-timer-top">
+              <span>⏱️ 專注計時</span>
+              <div style="display:flex; align-items:center; gap:4px;">
+                <input type="number" value="${Math.round(tState.totalSec/60)}" min="1" max="180" style="width:52px; padding:3px 4px; border:2px solid #16A34A; border-radius:8px; font-size:14px; font-weight:900; text-align:center;" onchange="setInlineTimerMinutes('${kid.id}', this.value)">
+                <span style="font-size:13px; font-weight:800;">分鐘</span>
+              </div>
+            </div>
+
+            <div class="inline-clock-wrapper" id="inlineClockWheel_${kid.id}" style="border-color:${color};">
+              <div class="inline-clock-pie" id="inlineClockPie_${kid.id}" style="background:conic-gradient(${color} 0deg, ${color} ${angle}deg, transparent ${angle}deg);"></div>
+              <div class="inline-clock-core" id="inlineTimerDisplay_${kid.id}">${timerDigits}</div>
+            </div>
+
+            <div class="inline-timer-controls">
+              <button class="btn-chip" style="padding:4px 8px; font-size:13px;" onclick="adjustInlineTimer('${kid.id}', -300)">-5m</button>
+              <button class="btn-chip" style="padding:4px 8px; font-size:13px;" onclick="adjustInlineTimer('${kid.id}', -60)">-1m</button>
+              <button class="btn-chip" style="padding:4px 8px; font-size:13px;" onclick="adjustInlineTimer('${kid.id}', 60)">+1m</button>
+              <button class="btn-chip" style="padding:4px 8px; font-size:13px;" onclick="adjustInlineTimer('${kid.id}', 300)">+5m</button>
+              <button class="btn-chip" id="inlineTimerBtn_${kid.id}" style="padding:6px 14px; font-size:15px; background:${tState.isRunning ? '#F59E0B' : 'var(--accent-mint)'}; color:#FFF;" onclick="toggleInlineTimerRunning('${kid.id}')">
+                ${tState.isRunning ? '⏸ 暫停' : '▶ 開始'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="score-card">
+          <div class="balance-badge-row">
+            <span>🎁 可兌換星星餘額：</span>
+            <span style="font-size:22px; color:#B45309;">${availableStars} ⭐</span>
+          </div>
+          <div class="score-headline">
+            <span>今日目標進度</span>
+            <span class="score-star-number">${earned} / ${totalPossible} ⭐</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-bar" style="width: ${Math.min(100, pct)}%;"></div>
+          </div>
+          <div class="badge-ribbon">
+            <span>🏆 週榮銜：</span>
+            <span style="color:${badge.color};">${badge.title} (${weekStars}⭐)</span>
+          </div>
+        </div>
+
+        <div class="task-stack" id="taskStack_${kid.id}"></div>
+      `;
+
+      container.appendChild(panel);
+
+      const taskStack = panel.querySelector(`#taskStack_${kid.id}`);
+      if (tasks.length === 0) {
+        taskStack.innerHTML = `
+          <div class="empty-board">
+            <div style="font-size:36px; margin-bottom:6px;">📋</div>
+            <div style="font-size:18px; font-weight:900; color:#475569;">目前清單是空的！</div>
+            <button class="btn-chip" style="margin-top:10px;" onclick="currentKidId='${kid.id}'; openTasksModal();">➕ 新增專屬任務</button>
+          </div>
+        `;
+      } else {
+        tasks.forEach((t, index) => {
+          const stars = Number(t.stars) || 1;
+          const penalty = Number(t.penalty) || 0;
+          const status = currentRecord.status[t.id] || null;
+
+          const card = document.createElement("div");
+          let statusClass = status === 'done' ? "status-done" : (status === 'failed' ? "status-failed" : "");
+          let tickSymbol = status === 'done' ? "✓" : (status === 'failed' ? "✕" : "");
+          card.className = `task-card ${statusClass}`;
+          card.setAttribute("draggable", "true");
+          card.dataset.index = index;
+          card.dataset.kidid = kid.id;
+
+          let extra = "";
+          if (t.type === "time_set") {
+            // 需求 2：以 taskId 獨立抓取設定時間，避免連動
+            const taskSavedTime = (currentRecord.taskTimes && currentRecord.taskTimes[t.id]) 
+              ? currentRecord.taskTimes[t.id] 
+              : (currentRecord.upstairsTime || '20:30');
+            extra = `
+              <div onclick="event.stopPropagation()">
+                <input type="time" class="time-slot-input" value="${taskSavedTime}" onchange="changeKidTimeSlot('${kid.id}', '${t.id}', this.value)">
+              </div>
+            `;
+          } else if (t.type === "timer") {
+            extra = `
+              <div onclick="event.stopPropagation()">
+                <button class="btn-timer-chip" onclick="openTimerForKid('${kid.id}', '${t.id}', '${t.title}', ${t.minutes || 15}, ${t.warnMinutes || 3})">⏱️ 任務鐘</button>
+              </div>
+            `;
+          }
+
+          let penaltyHtml = penalty > 0 ? `<span class="penalty-tag">未達 -${penalty} ⭐</span>` : "";
+
+          card.innerHTML = `
+            <div class="drag-grip" title="拖動調整順序">⠿</div>
+            <div class="task-left" onclick="toggleKidTaskStatus('${kid.id}', '${t.id}', ${stars}, ${penalty}, '${t.title}')">
+              <div class="tick-box">${tickSymbol}</div>
+              <div class="task-icon">${t.icon || "📝"}</div>
+              <div class="task-info">
+                <div class="task-title">
+                  <span>${t.title}</span>
+                  ${t.hint ? `<span class="task-hint-tag">(${t.hint})</span>` : ""}
+                  <span class="star-tag">+${stars} ⭐</span>
+                  ${penaltyHtml}
+                </div>
+              </div>
+            </div>
+            ${extra}
+          `;
+
+          bindDualDragEvents(card, index, kid.id);
+          taskStack.appendChild(card);
+        });
+      }
+    });
+  }
+
+  window.addEventListener("resize", () => {
+    renderDualBoard();
+  });
+
+  // 需求 2：支援 taskId 獨立更新時間，不干擾其他時間任務
+  function changeKidTimeSlot(kidId, taskId, val) {
+    const rec = getKidDateRecord(kidId, selectedDate);
+    if (!rec.taskTimes) rec.taskTimes = {};
+    rec.taskTimes[taskId] = val;
+    saveAll();
+    showToast(`時間已更新為：${val} ⏰`);
+  }
+
+  // 需求 3：定時任務到期背景響鈴監聽器
+  const triggeredAlarms = new Set();
+  setInterval(() => {
+    if (selectedDate !== getTodayKey()) return; // 僅提醒當天
+    const now = new Date();
+    const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    kidsList.forEach(kid => {
+      const rec = getKidDateRecord(kid.id, selectedDate);
+      const tasks = toSafeArray(kid.tasks, customTemplateTasks);
+
+      tasks.forEach(task => {
+        if (task.type === "time_set" && rec.status[task.id] !== 'done') {
+          const taskTime = (rec.taskTimes && rec.taskTimes[task.id]) ? rec.taskTimes[task.id] : (rec.upstairsTime || '20:30');
+          const alarmKey = `${kid.id}_${task.id}_${selectedDate}_${taskTime}`;
+
+          if (taskTime === currentHM && !triggeredAlarms.has(alarmKey)) {
+            triggeredAlarms.add(alarmKey);
+            triggerTimeSetAlarm(kid, task, taskTime);
+          }
+        }
+      });
+    });
+  }, 1000);
+
+  function triggerTimeSetAlarm(kid, task, timeStr) {
+    SoundEngine.init();
+    SoundEngine.playRingtone(currentRingtone);
+
+    const headerEl = document.getElementById("completeHeader");
+    const promptEl = document.getElementById("completePrompt");
+    const actionBox = document.getElementById("completeActionBox");
+
+    headerEl.innerText = "⏰ 預定時間到了！";
+    promptEl.innerText = `現在是 ${timeStr}！\n【${kid.name}】的任務【${task.title}】時間到囉，請準備開始！`;
+    actionBox.innerHTML = "";
+
+    const btnAck = document.createElement("button");
+    btnAck.className = "btn-main";
+    btnAck.style.background = "#059669";
+    btnAck.innerText = "我知道了！立即完成打勾 ✓";
+    btnAck.onclick = () => {
+      closeModal("completeModal");
+      toggleKidTaskStatus(kid.id, task.id, task.stars || 1, task.penalty || 0, task.title);
+    };
+    actionBox.appendChild(btnAck);
+
+    const btnDismiss = document.createElement("button");
+    btnDismiss.className = "btn-chip";
+    btnDismiss.innerText = "關閉提醒";
+    btnDismiss.onclick = () => closeModal("completeModal");
+    actionBox.appendChild(btnDismiss);
+
+    openModal("completeModal");
+  }
+
+  // 任務打勾
+  let celebrationTimer = null;
+  function toggleKidTaskStatus(kidId, taskId, stars, penalty, title) {
+    try {
+      const rec = getKidDateRecord(kidId, selectedDate);
+      const curr = rec.status[taskId] || null;
+      const numStars = Number(stars) || 1;
+      const numPenalty = Number(penalty) || 0;
+
+      if (!curr) {
+        rec.status[taskId] = 'done';
+        saveAll();
+        triggerStarCelebration(numStars, title);
+      } else if (curr === 'done') {
+        if (numPenalty > 0) {
+          rec.status[taskId] = 'failed';
+          saveAll();
+          SoundEngine.playDeductSound();
+          showToast(`未達成【${title}】，扣除 ${numPenalty} 顆星星 ⭐`);
+        } else {
+          delete rec.status[taskId];
+          saveAll();
+        }
+      } else {
+        delete rec.status[taskId];
+        saveAll();
+        showToast(`已重設【${title}】狀態`);
+      }
+    } catch(err) {
+      console.warn("狀態切換例外：", err);
+    }
+    renderDualBoard();
+  }
+
+  function triggerStarCelebration(stars, title) {
+    const overlay = document.getElementById("starOverlay");
+    const starsBox = document.getElementById("overlayStarsBox");
+    const titleEl = document.getElementById("overlayTitle");
+
+    clearTimeout(celebrationTimer);
+    starsBox.innerHTML = "";
+    titleEl.innerText = `🎉 太棒了！【${title}】挑戰成功！`;
+
+    document.body.classList.add("overlay-locked");
+    overlay.classList.add("active");
+
+    SoundEngine.playCelebration(currentCheerSound);
+
+    const count = Math.min(stars, 25);
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        const s = document.createElement("div");
+        s.className = "mega-star";
+        s.innerText = "⭐";
+        starsBox.appendChild(s);
+        SoundEngine.playStarPop(i);
+      }, i * 120);
+    }
+
+    try {
+      confetti({ particleCount: Math.min(stars * 30, 140), spread: 80, origin: { y: 0.6 } });
+    } catch(e) {}
+
+    celebrationTimer = setTimeout(closeStarOverlay, (count * 120) + 1800);
+  }
+
+  function closeStarOverlay() {
+    clearTimeout(celebrationTimer);
+    document.getElementById("starOverlay").classList.remove("active");
+    document.body.classList.remove("overlay-locked");
+  }
+
+  let dragSrcIdx = null;
+  let dragSrcKidId = null;
+  function bindDualDragEvents(el, idx, kidId) {
+    el.addEventListener("dragstart", (e) => {
+      dragSrcIdx = idx;
+      dragSrcKidId = kidId;
+      el.classList.add("is-dragging");
+    });
+    el.addEventListener("dragend", () => {
+      el.classList.remove("is-dragging");
+      document.querySelectorAll(".task-card").forEach(c => c.classList.remove("drag-over"));
+    });
+    el.addEventListener("dragover", (e) => { e.preventDefault(); el.classList.add("drag-over"); });
+    el.addEventListener("dragleave", () => el.classList.remove("drag-over"));
+    el.addEventListener("drop", (e) => {
+      e.preventDefault();
+      el.classList.remove("drag-over");
+      if (dragSrcIdx !== null && dragSrcIdx !== idx && dragSrcKidId === kidId) {
+        const targetKid = kidsList.find(k => k.id === kidId);
+        const item = targetKid.tasks.splice(dragSrcIdx, 1)[0];
+        targetKid.tasks.splice(idx, 0, item);
+        saveAll();
+        renderDualBoard();
+        showToast("已更新任務順序 ↕️");
+      }
+    });
+
+    const grip = el.querySelector(".drag-grip");
+    grip.addEventListener("touchstart", (e) => {
+      dragSrcIdx = idx;
+      dragSrcKidId = kidId;
+      el.classList.add("is-dragging");
+    }, { passive: true });
+    grip.addEventListener("touchmove", (e) => {
+      const touch = e.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const row = target ? target.closest(".task-card") : null;
+      document.querySelectorAll(".task-card").forEach(c => c.classList.remove("drag-over"));
+      if (row && row !== el && row.dataset.kidid === kidId) row.classList.add("drag-over");
+    }, { passive: true });
+    grip.addEventListener("touchend", (e) => {
+      el.classList.remove("is-dragging");
+      const changed = e.changedTouches[0];
+      const target = document.elementFromPoint(changed.clientX, changed.clientY);
+      const row = target ? target.closest(".task-card") : null;
+      document.querySelectorAll(".task-card").forEach(c => c.classList.remove("drag-over"));
+      if (row && row.dataset.index !== undefined && row.dataset.kidid === kidId) {
+        const targetIdx = parseInt(row.dataset.index);
+        if (dragSrcIdx !== null && dragSrcIdx !== targetIdx) {
+          const targetKid = kidsList.find(k => k.id === kidId);
+          const item = targetKid.tasks.splice(dragSrcIdx, 1)[0];
+          targetKid.tasks.splice(targetIdx, 0, item);
+          saveAll();
+          renderDualBoard();
+          showToast("已更新任務順序 ↕️");
+        }
+      }
+      dragSrcIdx = null;
+      dragSrcKidId = null;
+    });
+  }
+
+  // 備份與還原
+  window.openBackupModal = function() {
+    try {
+      const payload = {
+        kids: kidsList,
+        records: records,
+        redeemHistory: redeemHistory,
+        manualAdjustHistory: manualAdjustHistory,
+        customTemplateTasks: customTemplateTasks,
+        customTemplateRewards: customTemplateRewards,
+        ringtone: currentRingtone,
+        ringDuration: currentRingtoneDuration,
+        cheer: currentCheerSound
+      };
+      const area = document.getElementById("backupArea");
+      if (area) area.value = JSON.stringify(payload);
+    } catch(e) {}
+    openModal("backupModal");
+  };
+
+  window.copyBackup = function() {
+    const area = document.getElementById("backupArea");
+    if (!area) return;
+    area.select();
+    document.execCommand("copy");
+    showToast("備份碼已複製！請存入備忘錄 📋");
+  };
+
+  window.restoreBackup = function() {
+    const area = document.getElementById("backupArea");
+    if (!area) return;
+    let text = area.value.trim();
+    if (!text) return alert("請先貼上備份碼！");
+
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+      return alert("備份碼格式錯誤：找不到 JSON 括號，請確認完整複製！");
+    }
+    text = text.substring(firstBrace, lastBrace + 1);
+
+    try {
+      const parsed = JSON.parse(text);
+      const incomingKids = parsed.kids || parsed.kidsList;
+      if (!incomingKids) return alert("還原失敗：代碼中缺少 kids 欄位！");
+
+      if (parsed.customTemplateTasks) {
+        customTemplateTasks = toSafeArray(parsed.customTemplateTasks, FACTORY_10_TASKS);
+      }
+      if (parsed.customTemplateRewards) {
+        customTemplateRewards = toSafeArray(parsed.customTemplateRewards, FACTORY_DEFAULT_REWARDS);
+      }
+
+      kidsList = toSafeArray(incomingKids, getInitKids());
+      kidsList.forEach(k => {
+        k.tasks = toSafeArray(k.tasks, customTemplateTasks);
+        k.rewards = toSafeArray(k.rewards, customTemplateRewards);
+        if (!k.emoji) k.emoji = "🌟";
+        if (!k.customTitle) k.customTitle = `${k.name} 的每日任務`;
+      });
+
+      records = parsed.records || {};
+      redeemHistory = parsed.redeemHistory || {};
+      manualAdjustHistory = parsed.manualAdjustHistory || {};
+      if (parsed.ringtone) currentRingtone = parsed.ringtone;
+      if (parsed.ringDuration) currentRingtoneDuration = parsed.ringDuration;
+      if (parsed.cheer) currentCheerSound = parsed.cheer;
+
+      currentKidId = (kidsList[0] && kidsList[0].id) ? kidsList[0].id : "kid_1";
+      boardCurrentPage = 0;
+
+      saveAll();
+      renderKidsBar();
+      renderDualBoard();
+      closeModal("backupModal");
+      alert("🎉 資料已成功還原！");
+    } catch(e) {
+      alert("解析失敗：" + e.message);
+    }
+  };
+
+  function calculateTotalTaskStars(kidId) {
+    const kid = kidsList.find(k => k.id === kidId);
+    if (!kid) return 0;
+    const taskMap = {};
+    toSafeArray(kid.tasks, customTemplateTasks).forEach(t => {
+      taskMap[t.id] = { stars: Number(t.stars) || 1, penalty: Number(t.penalty) || 0 };
+    });
+
+    const recMap = records[kidId] || {};
+    let total = 0;
+    Object.keys(recMap).forEach(dtKey => {
+      const rec = recMap[dtKey];
+      if (rec) {
+        if (rec.status) {
+          Object.keys(rec.status).forEach(tId => {
+            if (taskMap[tId]) {
+              if (rec.status[tId] === 'done') total += taskMap[tId].stars;
+              else if (rec.status[tId] === 'failed') total = Math.max(0, total - taskMap[tId].penalty);
+            }
+          });
+        }
+        if (rec.checked) {
+          Object.keys(rec.checked).forEach(tId => {
+            if (rec.checked[tId] === true && taskMap[tId] && (!rec.status || !rec.status[tId])) {
+              total += taskMap[tId].stars;
+            }
+          });
+        }
+      }
+    });
+    return Math.max(0, total);
+  }
+
+  function calculateManualNetStars(kidId) {
+    const list = toSafeArray(manualAdjustHistory[kidId], []);
+    return list.reduce((net, item) => {
+      const amt = Number(item.stars) || 0;
+      return item.type === 'add' ? (net + amt) : (net - amt);
+    }, 0);
+  }
+
+  function calculateTotalSpentStars(kidId) {
+    const list = toSafeArray(redeemHistory[kidId], []);
+    return list.reduce((sum, item) => sum + (Number(item.cost) || 0), 0);
+  }
+
+  function getAvailableStars(kidId) {
+    const taskStars = Number(calculateTotalTaskStars(kidId)) || 0;
+    const manualNet = Number(calculateManualNetStars(kidId)) || 0;
+    const spent = Number(calculateTotalSpentStars(kidId)) || 0;
+    return Math.max(0, taskStars + manualNet - spent);
+  }
+
+  function getBadgeInfo(stars) {
+    if (stars >= 50) return { title: "👑 宇宙無敵自律之王", desc: "最強自主管理模範生！", color: "#845EC2" };
+    if (stars >= 40) return { title: "💎 鑽石榮譽好寶寶", desc: "表現卓越，光芒四射！", color: "#008E9B" };
+    if (stars >= 30) return { title: "🥇 金牌超級小達人", desc: "堅持到底，閃閃發光！", color: "#D97706" };
+    if (stars >= 20) return { title: "🥈 銀牌自律小之星", desc: "主動積極，進步神速！", color: "#475569" };
+    if (stars >= 10) return { title: "🥉 銅牌得力小幫手", desc: "踏出自律的第一步！", color: "#B45309" };
+    return { title: "🌱 萌芽好寶寶", desc: "正在累積好習慣能量！", color: "#059669" };
+  }
+
+  function shiftDate(offset) {
+    const parts = selectedDate.split("-");
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    d.setDate(d.getDate() + offset);
+    selectedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    renderDateUI();
+    renderDualBoard();
+  }
+
+  function onDateChanged(val) {
+    if (!val) return;
+    selectedDate = val;
+    renderDateUI();
+    renderDualBoard();
+  }
+
+  function resetToday() {
+    selectedDate = getTodayKey();
+    renderDateUI();
+    renderDualBoard();
+    showToast("已回到今天 ☀️");
+  }
+
+  function renderDateUI() {
+    const picker = document.getElementById("datePicker");
+    if (picker) picker.value = selectedDate;
+    const isToday = (selectedDate === getTodayKey());
+    const tagBox = document.getElementById("historyTagBox");
+    if (tagBox) {
+      tagBox.innerHTML = isToday ? "" : `<span class="history-badge">📜 補填歷史紀錄中 (${selectedDate})</span>`;
+    }
+  }
+
+  function renderKidsBar() {
+    const bar = document.getElementById("kidsBar");
+    if (!bar) return;
+    bar.innerHTML = "";
+
+    kidsList.forEach((k, idx) => {
+      const pill = document.createElement("div");
+      pill.className = `kid-pill ${k.id === currentKidId ? "active" : ""}`;
+      const thumb = k.avatar 
+        ? `<img src="${k.avatar}" class="kid-thumb">` 
+        : `<div class="kid-thumb">${k.emoji || "🌟"}</div>`;
+      pill.innerHTML = `${thumb}<span>${k.name}</span>`;
+      pill.onclick = () => {
+        const isDualMode = (window.innerWidth >= 900);
+        const pageSize = isDualMode ? 2 : 1;
+        boardCurrentPage = Math.floor(idx / pageSize);
+        switchKid(k.id);
+      };
+      bar.appendChild(pill);
+    });
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "add-kid-pill";
+    addBtn.innerText = "➕ 新增孩子";
+    addBtn.onclick = () => { cancelKidEdit(); openKidsModal(); };
+    bar.appendChild(addBtn);
+  }
+
+  function switchKid(kidId) {
+    currentKidId = kidId;
+    saveLocalOnly();
+    renderKidsBar();
+    renderDualBoard();
+    showToast(`切換至：${getCurrentKid().name} 👧👦`);
+  }
+
+  function calculateStarsByDays(kidId, days) {
+    const kid = kidsList.find(k => k.id === kidId);
+    if (!kid) return 0;
+    const taskMap = {};
+    toSafeArray(kid.tasks, customTemplateTasks).forEach(t => {
+      taskMap[t.id] = { stars: Number(t.stars) || 1, penalty: Number(t.penalty) || 0 };
+    });
+
+    const recMap = records[kidId] || {};
+    let total = 0;
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const rec = recMap[key];
+      if (rec && rec.status) {
+        Object.keys(rec.status).forEach(tId => {
+          if (taskMap[tId]) {
+            if (rec.status[tId] === 'done') total += taskMap[tId].stars;
+            else if (rec.status[tId] === 'failed') total = Math.max(0, total - taskMap[tId].penalty);
+          }
+        });
+      }
+    }
+    return Math.max(0, total);
+  }
+
+  // 音訊合成模組
+  const SoundEngine = {
+    ctx: null,
+    masterGain: null,
+    init() {
+      if (!this.ctx) {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+        this.masterGain.connect(this.ctx.destination);
+      }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    },
+    playTone(freq, type = "sine", duration = 0.2, delay = 0, vol = 0.5) {
+      setTimeout(() => {
+        try {
+          this.init();
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+      }, delay);
+    },
+    playStarPop(index = 0) {
+      this.init();
+      const baseFreq = 523.25 * Math.pow(1.05946, (index % 12) * 2);
+      this.playTone(baseFreq, "triangle", 0.35, 0, 0.45);
+      this.playTone(baseFreq * 2, "sine", 0.35, 0, 0.3);
+    },
+    playCoinRedeemSound() {
+      this.init();
+      this.playTone(987.77, "square", 0.15, 0, 0.4);
+      this.playTone(1318.51, "square", 0.35, 100, 0.5);
+    },
+    playDeductSound() {
+      this.init();
+      this.playTone(329.63, "sawtooth", 0.2, 0, 0.35);
+      this.playTone(261.63, "sawtooth", 0.35, 150, 0.35);
+    },
+    playCelebration(type = "cheer") {
+      this.init();
+      const now = this.ctx.currentTime;
+      if (type === "cheer") {
+        const chords = [[523.25, 659.25, 783.99], [587.33, 739.99, 880], [659.25, 830.61, 987.77], [1046.5, 1318.51, 1567.98]];
+        chords.forEach((chord, step) => {
+          chord.forEach(freq => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(freq, now + (step * 0.12));
+            gain.gain.setValueAtTime(0.2, now + (step * 0.12));
+            gain.gain.exponentialRampToValueAtTime(0.001, now + (step * 0.12) + 0.45);
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(now + (step * 0.12));
+            osc.stop(now + (step * 0.12) + 0.45);
+          });
+        });
+        const bufferSize = this.ctx.sampleRate * 0.8;
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+        const whiteNoise = this.ctx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(1200, now);
+        filter.Q.setValueAtTime(2.5, now);
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.01, now);
+        noiseGain.gain.linearRampToValueAtTime(0.22, now + 0.15);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+        whiteNoise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(this.masterGain);
+        whiteNoise.start(now);
+        whiteNoise.stop(now + 0.8);
+      } else if (type === "fanfare") {
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => this.playTone(freq, "sawtooth", 0.45, idx * 110, 0.45));
+      } else if (type === "arcade") {
+        [440, 554.37, 659.25, 880, 1108.73, 1318.51].forEach((freq, idx) => this.playTone(freq, "square", 0.12, idx * 75, 0.4));
+      } else if (type === "chime") {
+        [659.25, 987.77, 1318.51].forEach((freq, idx) => this.playTone(freq, "sine", 0.6, idx * 140, 0.5));
+      }
+    },
+    playWarningDing() {
+      this.init();
+      this.playTone(987.77, "square", 0.3, 0, 0.45);
+      this.playTone(1318.51, "square", 0.35, 180, 0.5);
+    },
+    playRingtone(type = "fanfare") {
+      this.init();
+      if (type === "fanfare") {
+        [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, idx) => {
+          this.playTone(freq, "sawtooth", 0.45, idx * 100, 0.5);
+          this.playTone(freq * 0.5, "triangle", 0.45, idx * 100, 0.35);
+        });
+      } else if (type === "siren") {
+        for (let i = 0; i < 4; i++) {
+          this.playTone(1567.98, "square", 0.12, i * 140, 0.55);
+          this.playTone(1046.50, "sawtooth", 0.12, (i * 140) + 70, 0.5);
+        }
+      } else if (type === "alarm") {
+        for (let i = 0; i < 4; i++) {
+          this.playTone(1046.50, "sawtooth", 0.16, i * 160, 0.55);
+          this.playTone(1318.51, "square", 0.16, (i * 160) + 80, 0.5);
+        }
+      } else if (type === "school") {
+        [659.25, 523.25, 587.33, 392].forEach((freq, idx) => {
+          this.playTone(freq, "sine", 0.6, idx * 260, 0.6);
+          this.playTone(freq * 2, "sine", 0.4, idx * 260, 0.3);
+        });
+      } else if (type === "arcade") {
+        [440, 554.37, 659.25, 880, 1108.73, 1318.51, 1760].forEach((freq, idx) => {
+          this.playTone(freq, "square", 0.12, idx * 75, 0.45);
+        });
+      } else if (type === "laser") {
+        [1800, 1400, 1000, 600, 1800, 1400, 1000, 600].forEach((freq, idx) => {
+          this.playTone(freq, "sawtooth", 0.08, idx * 90, 0.5);
+        });
+      }
+    }
+  };
+
+  let statsRange = "week";
+  window.setStatsRange = function(mode) {
+    statsRange = mode;
+    document.getElementById("tabWeek").style.background = mode === 'week' ? 'var(--accent-yellow)' : '#FFF';
+    document.getElementById("tabMonth").style.background = mode === 'month' ? 'var(--accent-yellow)' : '#FFF';
+    document.getElementById("tabCustom").style.background = mode === 'custom' ? 'var(--accent-yellow)' : '#FFF';
+
+    const box = document.getElementById("customDateBox");
+    if (mode === 'custom') {
+      box.style.display = "flex";
+      if (!document.getElementById("statsStart").value) {
+        const d = new Date(); d.setDate(d.getDate() - 14);
+        document.getElementById("statsStart").value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        document.getElementById("statsEnd").value = getTodayKey();
+      }
+    } else {
+      box.style.display = "none";
+    }
+    renderStatsContent();
+  };
+
+  window.openStatsModal = function() {
+    setStatsRange("week");
+    openModal("statsModal");
+  };
+
+  function renderStatsContent() {
+    const kid = getCurrentKid();
+    const container = document.getElementById("statsSheetContent");
+    if (!container) return;
+    const taskMap = {};
+    toSafeArray(kid.tasks, customTemplateTasks).forEach(t => {
+      taskMap[t.id] = { stars: Number(t.stars) || 1, penalty: Number(t.penalty) || 0 };
+    });
+    const recMap = records[kid.id] || {};
+
+    let dates = [];
+    let title = "";
+
+    if (statsRange === "week") {
+      title = "過去 7 天";
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+    } else if (statsRange === "month") {
+      title = "過去 30 天";
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+    } else if (statsRange === "custom") {
+      const s = document.getElementById("statsStart").value;
+      const e = document.getElementById("statsEnd").value;
+      if (!s || !e) return;
+      title = `${s} ~ ${e}`;
+      for (let d = new Date(s); d <= new Date(e); d.setDate(d.getDate() + 1)) {
+        dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+    }
+
+    let sum = 0;
+    const daily = dates.map(dt => {
+      let st = 0;
+      const r = recMap[dt];
+      if (r && r.status) {
+        Object.keys(r.status).forEach(tId => {
+          if (taskMap[tId]) {
+            if (r.status[tId] === 'done') st += taskMap[tId].stars;
+            else if (r.status[tId] === 'failed') st = Math.max(0, st - taskMap[tId].penalty);
+          }
+        });
+      }
+      st = Math.max(0, st);
+      sum += st;
+      return { dt, st };
+    });
+
+    const badge = getBadgeInfo(sum);
+    const avatar = kid.avatar 
+      ? `<img src="${kid.avatar}" style="width:58px;height:58px;border-radius:50%;object-fit:cover;border:2.5px solid var(--border-line);margin-bottom:6px;">` 
+      : `<div style="font-size:38px;margin-bottom:6px;">${kid.emoji || "🌟"}</div>`;
+
+    let html = `
+      <div style="background:#FFFDF0; border:3px solid var(--border-line); border-radius:16px; padding:16px; text-align:center; margin-bottom:14px; box-shadow:4px 4px 0px var(--border-line);">
+        ${avatar}
+        <div style="font-size:14px; font-weight:900; color:#D97706;">📜 榮譽乖寶寶證明書</div>
+        <div style="font-size:22px; font-weight:900; color:${badge.color}; margin:4px 0;">${badge.title}</div>
+        <div style="font-size:15px; font-weight:800; color:#475569;">獲獎人：【${kid.name}】</div>
+        <div style="font-size:13px; color:#64748B; margin:6px 0;">${badge.desc}</div>
+        <div style="font-size:15px; font-weight:900; color:var(--accent-coral);">${title} 累計星星：${sum} ⭐</div>
+      </div>
+      <div style="font-size:15px; font-weight:900; margin-bottom:8px;">📊 每日星數長條圖：</div>
+      <div style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto;">
+    `;
+
+    daily.slice().reverse().forEach(item => {
+      const parts = item.dt.split("-");
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      const label = `${parts[1]}/${parts[2]} (${["日","一","二","三","四","五","六"][d.getDay()]})`;
+      const w = Math.min(100, item.st * 10);
+
+      html += `
+        <div style="background:#F8FAFC; border:1.5px solid #E2E8F0; padding:6px 10px; border-radius:10px;">
+          <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:800; margin-bottom:3px;">
+            <span>${label}</span>
+            <span style="color:#C2410C;">+${item.st} ⭐</span>
+          </div>
+          <div style="height:8px; background:#E2E8F0; border-radius:5px; overflow:hidden;">
+            <div style="height:100%; width:${w}%; background:var(--accent-coral); border-radius:5px;"></div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
+  }
+
+  function showToast(text) {
+    const t = document.getElementById("toastBox");
+    if (!t) return;
+    t.innerText = text;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2000);
+  }
+
+  function startApp() {
+    renderDateUI();
+    renderKidsBar();
+    renderDualBoard();
+    setTimeout(initFirebaseSafely, 200);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startApp);
+  } else {
+    startApp();
+  }
+</script>
+</body>
+</html>
